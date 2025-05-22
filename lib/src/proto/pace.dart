@@ -614,6 +614,9 @@ class PACE {
           _log.sdVerbose(
               "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
           return decryptedNonce;
+        } else {
+          _log.error("PACE.decryptNonce; Key length is not supported");
+          throw PACEError("PACE.decryptNonce; Key length is not supported");
         }
       } else if (cipherAlgo == CipherAlgorithm.DESede) {
         _log.debug("PACE.decryptNonce; Cipher algorithm: DESede");
