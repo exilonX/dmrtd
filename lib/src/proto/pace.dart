@@ -560,12 +560,24 @@ class PACE {
 
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       _log.debug("Cipher algorithm: AES.");
-      AESCipher aesCipher = AESChiperSelector.getChiper(
-          size: KEY_LENGTH.s128); //size is not important
-      Uint8List computedAuthToken =
-          aesCipher.calculateCMAC(data: inputData, key: macKey);
-      _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
-      return computedAuthToken;
+      if (keyLength == KEY_LENGTH.s128) {
+        AESCipher aesCipher = AESChiperSelector.getChiper(
+            size: KEY_LENGTH.s128); //size is not important
+        Uint8List computedAuthToken =
+            aesCipher.calculateCMAC(data: inputData, key: macKey);
+        _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
+        return computedAuthToken;
+      } else if (keyLength == KEY_LENGTH.s256) {
+        AESCipher aesCipher = AESChiperSelector.getChiper(
+            size: KEY_LENGTH.s256); //size is not important
+        Uint8List computedAuthToken =
+            aesCipher.calculateCMAC(data: inputData, key: macKey);
+        _log.sdVerbose("Computed auth token 256: ${computedAuthToken.hex()}");
+        return computedAuthToken;
+      } else {
+        _log.error("Key length is not supported");
+        throw PACEError("Key length is not supported");
+      }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
       var computedAuthToken =
