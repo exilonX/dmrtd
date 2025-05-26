@@ -823,9 +823,22 @@ class PACE {
             paceProtocol: paceProtocol,
             inputData: calcInputData,
             macKey: macKey);
+        print("=== STEP 4 DEBUG ===");
+        print("ENC key:   ${encKey.hex()}");
+        print("MAC key:   ${macKey.hex()}");
+        print("InputData (T-block): ${calcInputData.hex()}");
+        print("AuthToken: ${inputToken.hex()}");
 
         Uint8List step4data =
             generateGeneralAuthenticateDataStep4(authToken: inputToken);
+        print("Step 4 APDU DATA: ${step4data.hex()}");
+// parse the TLV so you can see tags/lengths
+        var outer = TLV.fromBytes(step4data);
+        var inner = TLV.fromBytes(outer.value);
+        print("Outer TLV: tag=${outer.tag.hex()}, len=${outer.value.length}");
+        print("Inner TLV: tag=${inner.tag.hex()}, len=${inner.value.length}");
+        print("====================");
+
         final step4Response =
             await icc.generalAuthenticatePACEstep4(data: step4data);
         //here the response is always 9000, otherwise exception is thrown
