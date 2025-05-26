@@ -672,6 +672,15 @@ class PACE {
         //get public key
         PublicKeyPACEeCDH publicKeyPaceTerminal = domainParameter.getPubKey();
 
+        // After public key is generated
+        final pubKeyBytes = publicKeyPaceTerminal.toBytes();
+        if (pubKeyBytes.length != 65 || pubKeyBytes[0] != 0x04) {
+          _log.severe(
+              "Generated EC public key is NOT in SEC1 format. Length=${pubKeyBytes.length}, Starts with: ${pubKeyBytes[0].toRadixString(16)}");
+          throw PACEError(
+              "SEC1 format required (0x04|X|Y), but got: ${pubKeyBytes.hex()}");
+        }
+
         _log.sdVerbose("Private key: ${domainParameter.toStringWithCaution()}");
         _log.sdVerbose("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
 
