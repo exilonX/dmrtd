@@ -122,7 +122,7 @@ class Passport {
       final raw = await _exec(() => _api.readFileBySFI(EfCardAccess.SFI));
 
       // log the exact bytes you got back
-      _log.warning("EF.CardAccess RAW: ${raw.hex()}");
+      _log.warning("EF.CardAccess RAW: ${(raw as Uint8List).hex()}");
 
       // now parse into your model
       return EfCardAccess.fromBytes(raw);
