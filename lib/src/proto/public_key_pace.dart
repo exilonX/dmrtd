@@ -40,23 +40,14 @@ class PublicKeyPACEeCDH extends PublicKeyPACE {
   Uint8List get xBytes => Utils.bigIntToUint8List(bigInt: _x);
   Uint8List get yBytes => Utils.bigIntToUint8List(bigInt: _y);
 
-  // Helper: pad BigInt to correct size (32 bytes for P-256, BrainpoolP256r1)
-  Uint8List _bigIntTo32Bytes(BigInt n) {
-    // Always pad to 32 bytes (change if curve is not 256 bit!)
-    final raw = n.toUnsigned(256).toRadixString(16).padLeft(64, '0');
-    return Uint8List.fromList(List<int>.generate(
-        32, (i) => int.parse(raw.substring(i * 2, i * 2 + 2), radix: 16)));
+  @override
+  Uint8List toBytes() {
+    // just X||Y
+    return Uint8List.fromList([...xBytes, ...yBytes]);
   }
 
   @override
-  Uint8List toBytes() {
-    // SEC1 uncompressed: 0x04 + 32-byte X + 32-byte Y
-    return Uint8List.fromList([
-      0x04,
-      ..._bigIntTo32Bytes(_x),
-      ..._bigIntTo32Bytes(_y),
-    ]);
-  }
+  Uint8List toRelavantBytes() => toBytes();
 
   PublicKeyPACEeCDH.fromHex({required Uint8List hexKey})
       : _x = Utils.uint8ListToBigInt(hexKey.sublist(0, hexKey.length ~/ 2)),
@@ -64,14 +55,8 @@ class PublicKeyPACEeCDH extends PublicKeyPACE {
         super(algo: TOKEN_AGREEMENT_ALGO.ECDH);
 
   @override
-  Uint8List toRelavantBytes() {
-    // For key agreement you usually need both X and Y, so return toBytes
-    return toBytes();
-  }
-
-  @override
   String toString() {
-    return "X: ${_bigIntTo32Bytes(_x).hex()}\nY: ${_bigIntTo32Bytes(_y).hex()}";
+    return "X: ${xBytes.hex()}\nY: ${yBytes.hex()}";
   }
 }
 
