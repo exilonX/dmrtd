@@ -701,6 +701,13 @@ class PACE {
         ECPoint generatorPoint = domainParameter.getMappedGenerator(
             otherPubKey: publicICCkey, nonce: nonce);
 
+        _log.warning(
+            "[PACE Step3] Mapped generator X: ${generatorPoint.x.toString()}");
+        _log.warning(
+            "[PACE Step3] Mapped generator Y: ${generatorPoint.y.toString()}");
+        _log.warning(
+            "[PACE Step3] Mapped generator encoded: ${generatorPoint.getEncoded(false).hex()}");
+
         _log.sdVerbose(
             "Generator point: ${ECDHPace.ecPointToList(point: generatorPoint).toString()}");
         domainParameter.generateKeyPairWithCustomGenerator(
@@ -710,6 +717,15 @@ class PACE {
         PublicKeyPACEeCDH publicKeyEphemeralPaceTerminal =
             domainParameter.getPubKeyEphemeral();
 
+        final pubKeyBytes = publicKeyEphemeralPaceTerminal.toBytes();
+        _log.warning("[PACE Step3] Ephemeral public key: ${pubKeyBytes.hex()}");
+        _log.warning(
+            "[PACE Step3] Ephemeral public key length: ${pubKeyBytes.length}");
+        if (pubKeyBytes.length != 65 || pubKeyBytes[0] != 0x04) {
+          _log.warning(
+              "[PACE Step3] PUBLIC KEY FORMAT MISMATCH! Should be uncompressed SEC1 format (0x04 + 32 + 32 bytes)");
+        }
+
         _log.sdVerbose(
             "Private key (ephemeral included): ${domainParameter.toStringWithCaution()}");
         _log.sdVerbose(
@@ -717,6 +733,28 @@ class PACE {
 
         Uint8List step3data = generateGeneralAuthenticateDataStep2and3(
             public: publicKeyEphemeralPaceTerminal, isEphemeral: true);
+
+        _log.info(
+            "PACE step 3 ephemeral public key (raw): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
+        _log.info(
+            "Mapped generator (EC point): ${ECDHPace.ecPointToList(point: generatorPoint).toString()}");
+        _log.info("GENERAL AUTHENTICATE APDU data (hex): ${step3data.hex()}");
+
+        final tlv = TLV.fromBytes(step3data);
+        _log.warning(
+            "[PACE Step3] Outer TLV tag: ${tlv.tag.hex()}, len: ${tlv.value.length}");
+        if (tlv.value.length > 0) {
+          try {
+            final inner = TLV.fromBytes(tlv.value);
+            _log.warning(
+                "[PACE Step3] Inner TLV tag: ${inner.tag.hex()}, len: ${inner.value.length}");
+            _log.warning("[PACE Step3] Inner value: ${inner.value.hex()}");
+          } catch (e) {
+            _log.warning("[PACE Step3] Failed to parse inner TLV: $e");
+          }
+        }
+        _log.warning("[PACE Step3] Full APDU: ${step3data.hex()}");
+
         final step3Response =
             await icc.generalAuthenticatePACEstep2and3(data: step3data);
         //here the response is always 9000, otherwise exception is thrown
