@@ -196,7 +196,35 @@ class MrtdApi {
     _log.info(
         "TLV tag: 0x${dtl.tag.value.toRadixString(16)}, length: ${dtl.length.value}");
 
+    _dumpTlv(rawFile);
+
     return rawFile;
+  }
+
+  String _pad(int count) => List.filled(count, ' ').join();
+
+  void _dumpTlv(Uint8List data, [int indent = 0]) {
+    final pad = _pad(indent);
+    final hdr = TLV.decodeTagAndLength(data);
+    final tag = hdr.tag;
+    final length = hdr.length.value;
+    final headerLen = hdr.encodedLen;
+    final value = data.sublist(headerLen, headerLen + length);
+
+    _log.info(
+        '$pad• Tag=0x${tag.value.hex()}  Len=$length  Val=${value.hex()}');
+
+    // Walk children
+    int offset = 0;
+    while (offset < value.length) {
+      final childHdr = TLV.decodeTagAndLength(value.sublist(offset));
+      final childTotal = childHdr.encodedLen + childHdr.length.value;
+      _dumpTlv(
+        value.sublist(offset, offset + childTotal),
+        indent + 2,
+      );
+      offset += childTotal;
+    }
   }
 
   /// Reads [length] long fragment of file starting at [offset].
