@@ -1010,9 +1010,7 @@ class PACE {
 
         Uint8List calcInputData = PACE.generateEncodingInputData(
             crytpographicMechanism: paceProtocol,
-            ephemeralPublic:
-                ephemeralPublicICCenvelope //domainParameter.getPubKeyEphemeral()
-            );
+            ephemeralPublic: domainParameter.getPubKeyEphemeral());
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
