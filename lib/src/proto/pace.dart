@@ -671,21 +671,26 @@ class PACE {
         domainParameter.generateKeyPair();
         //get public key
         PublicKeyPACEeCDH publicKeyPaceTerminal = domainParameter.getPubKey();
-
-        // After public key is generated
         final pubKeyBytes = publicKeyPaceTerminal.toBytes();
-        if (pubKeyBytes.length != 65 || pubKeyBytes[0] != 0x04) {
-          _log.severe(
-              "Generated EC public key is NOT in SEC1 format. Length=${pubKeyBytes.length}, Starts with: ${pubKeyBytes[0].toRadixString(16)}");
-          throw PACEError(
-              "SEC1 format required (0x04|X|Y), but got: ${pubKeyBytes.hex()}");
-        }
+
+        print(
+            "Public key (X): ${publicKeyPaceTerminal.x.toRadixString(16).padLeft(64, '0')}");
+        print(
+            "Public key (Y): ${publicKeyPaceTerminal.y.toRadixString(16).padLeft(64, '0')}");
+        print("Public key SEC1 (hex): ${pubKeyBytes.hex()}");
 
         _log.sdVerbose("Private key: ${domainParameter.toStringWithCaution()}");
         _log.sdVerbose("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
 
+        print("Private key: ${domainParameter.toStringWithCaution()}");
+        print("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
+        print(publicKeyPaceTerminal.x.toString());
+        print(publicKeyPaceTerminal.y.toString());
+
         Uint8List step2data = generateGeneralAuthenticateDataStep2and3(
             public: publicKeyPaceTerminal);
+
+        print("Step 2 data: ${step2data.hex()}");
         final step2Response =
             await icc.generalAuthenticatePACEstep2and3(data: step2data);
         //here the response is always 9000, otherwise exception is thrown
