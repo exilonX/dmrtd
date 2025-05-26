@@ -201,29 +201,43 @@ class MrtdApi {
     return rawFile;
   }
 
+  /// Helper to build an indent string of [count] spaces.
   String _pad(int count) => List.filled(count, ' ').join();
 
+  /// Decode the TLV header from [data], log it at [indent],
+  /// and then recurse *only* if it's a constructed tag.
   void _dumpTlv(Uint8List data, [int indent = 0]) {
-    final pad = _pad(indent);
+    // decodeTagAndLength gives us tag, length, header size:
     final hdr = TLV.decodeTagAndLength(data);
     final tag = hdr.tag;
     final length = hdr.length.value;
-    final headerLen = hdr.encodedLen;
-    final value = data.sublist(headerLen, headerLen + length);
+    final hdrLen = hdr.encodedLen;
 
-    _log.info(
-        '$pad• Tag=0x${tag.value.hex()}  Len=$length  Val=${value.hex()}');
+    // slice out the raw value bytes:
+    final valueBytes = data.sublist(hdrLen, hdrLen + length);
 
-    // Walk children
-    int offset = 0;
-    while (offset < value.length) {
-      final childHdr = TLV.decodeTagAndLength(value.sublist(offset));
-      final childTotal = childHdr.encodedLen + childHdr.length.value;
-      _dumpTlv(
-        value.sublist(offset, offset + childTotal),
-        indent + 2,
-      );
-      offset += childTotal;
+    // print this TLV
+    _log.info('${_pad(indent)}• Tag=0x${tag.value.hex()}'
+        '  Len=$length'
+        '  Val=${valueBytes.hex()}');
+
+    // only if the tag byte has the constructed bit set (0x20),
+    // treat the value as containing nested TLVs:
+    if ((tag.value & 0x20) == 0x20) {
+      int offset = 0;
+      while (offset < valueBytes.length) {
+        // decode next child
+        final childHdr = TLV.decodeTagAndLength(valueBytes.sublist(offset));
+        final childTotal = childHdr.encodedLen + childHdr.length.value;
+
+        // recurse
+        _dumpTlv(
+          valueBytes.sublist(offset, offset + childTotal),
+          indent + 2,
+        );
+
+        offset += childTotal;
+      }
     }
   }
 
