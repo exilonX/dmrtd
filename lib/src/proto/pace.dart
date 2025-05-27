@@ -838,8 +838,8 @@ class PACE {
         print("Inner TLV: tag=${inner.tag.hex()}, len=${inner.value.length}");
         print("====================");
 
-        final step4Response = await icc.generalAuthenticatePACEstep4(
-            data: step4data, cla: ISO7816_CLA.SM_HEADER_AUTHN);
+        final step4Response =
+            await icc.generalAuthenticatePACEstep4(data: step4data);
         //here the response is always 9000, otherwise exception is thrown
 
         ResponseAPDUStep4Pace apduStep4Pace =
