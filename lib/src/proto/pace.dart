@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/src/lds/asn1ObjectIdentifiers.dart';
+import 'package:dmrtd/src/proto/iso7816/iso7816.dart';
 import 'package:dmrtd/src/proto/public_key_pace.dart';
 import 'package:dmrtd/src/crypto/kdf.dart';
 import 'package:dmrtd/src/crypto/aes.dart';
@@ -837,8 +838,8 @@ class PACE {
         print("Inner TLV: tag=${inner.tag.hex()}, len=${inner.value.length}");
         print("====================");
 
-        final step4Response =
-            await icc.generalAuthenticatePACEstep4(data: step4data);
+        final step4Response = await icc.generalAuthenticatePACEstep4(
+            data: step4data, ne: 0, cla: ISO7816_CLA.NO_SM);
         //here the response is always 9000, otherwise exception is thrown
 
         ResponseAPDUStep4Pace apduStep4Pace =
