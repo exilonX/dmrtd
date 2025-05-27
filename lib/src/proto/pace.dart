@@ -816,7 +816,7 @@ class PACE {
 
         Uint8List calcInputData = PACE.generateEncodingInputData(
             crytpographicMechanism: paceProtocol,
-            ephemeralPublic: ephemeralPublicICCenvelope);
+            ephemeralPublic: domainParameter.getPubKeyEphemeral());
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -838,8 +838,8 @@ class PACE {
         print("Inner TLV: tag=${inner.tag.hex()}, len=${inner.value.length}");
         print("====================");
 
-        final step4Response = await icc.generalAuthenticatePACEstep4(
-            data: step4data, ne: 0, cla: ISO7816_CLA.NO_SM);
+        final step4Response =
+            await icc.generalAuthenticatePACEstep4(data: step4data);
         //here the response is always 9000, otherwise exception is thrown
 
         ResponseAPDUStep4Pace apduStep4Pace =
