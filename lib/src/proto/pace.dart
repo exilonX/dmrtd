@@ -21,6 +21,7 @@ import "package:dmrtd/src/extension/logging_apis.dart";
 import "package:dmrtd/src/lds/tlv.dart";
 import "package:dmrtd/src/proto/iso7816/icc.dart";
 import 'package:dmrtd/src/lds/efcard_access.dart';
+import 'package:pointycastle/export.dart';
 
 import '../lds/tlvSet.dart';
 import '../utils.dart';
@@ -830,6 +831,28 @@ class PACE {
 
         Uint8List step4data =
             generateGeneralAuthenticateDataStep4(authToken: inputToken);
+
+        final pcCmac = CMac(BlockCipher('AES'), 128)
+          ..init(KeyParameter(macKey));
+        final pcMac = pcCmac.process(calcInputData);
+        print('=== CMAC COMPARISON ===');
+        print('FixedCMac:        ${inputToken.hex()}');
+        print('PointyCastleCMac: ${pcMac.hex()}');
+
+        if (!inputToken.equals(pcMac)) {
+          print('>> MISMATCH between FixedCMac and PointyCastle CMac!');
+        }
+
+        final apduBytes = <int>[
+          0x00, // CLA
+          ISO7816_INS.GENERAL_AUTHENTICATE,
+          0x00, 0x00,
+          step4data.length, // Lc
+          ...step4data,
+          // no Le here, or use 0x00 if your transceive requires it
+        ];
+        print('=== APDU TO SEND ===');
+        print(apduBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join());
         print("Step 4 APDU DATA: ${step4data.hex()}");
 // parse the TLV so you can see tags/lengths
         var outer = TLV.fromBytes(step4data);
