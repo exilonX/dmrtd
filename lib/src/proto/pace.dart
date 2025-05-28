@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dmrtd/extensions.dart';
+import 'package:dmrtd/src/crypto/cmac.dart';
 import 'package:dmrtd/src/lds/asn1ObjectIdentifiers.dart';
 import 'package:dmrtd/src/proto/iso7816/iso7816.dart';
 import 'package:dmrtd/src/proto/public_key_pace.dart';
@@ -832,9 +833,10 @@ class PACE {
         Uint8List step4data =
             generateGeneralAuthenticateDataStep4(authToken: inputToken);
 
-        final pcCmac = CMac(BlockCipher('AES'), 128)
+        final pcCmac = FixedCMac.fromCipher(BlockCipher('AES'))
           ..init(KeyParameter(macKey));
         final pcMac = pcCmac.process(calcInputData);
+
         print('=== CMAC COMPARISON ===');
         print('FixedCMac:        ${inputToken.hex()}');
         print('PointyCastleCMac: ${pcMac.hex()}');
