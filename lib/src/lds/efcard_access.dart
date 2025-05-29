@@ -42,7 +42,19 @@ class EfCardAccess extends ElementaryFile {
           "Invalid structure of EF.CardAccess. No data to parse.");
     }
 
-    ASN1Set set = parser.nextObject() as ASN1Set;
+    // ASN1Set set = parser.nextObject() as ASN1Set;
+    final rootObj = parser.nextObject();
+    _log.info("EF.CardAccess ASN1 root object: ${rootObj.runtimeType}");
+
+    List elements;
+    if (rootObj is ASN1Set) {
+      elements = rootObj.elements!;
+    } else if (rootObj is ASN1Sequence) {
+      elements = rootObj.elements!;
+    } else {
+      throw EfParseError(
+          "EF.CardAccess: Unexpected ASN1 root type: ${rootObj.runtimeType}");
+    }
 
     // there are 2 structures of EF.CardAccess but second one is not required
     // - PaceInfo
@@ -66,7 +78,7 @@ class EfCardAccess extends ElementaryFile {
     // paceInfo = pi;
 
     // Walk all elements in the set
-    for (var el in set.elements!) {
+    for (var el in elements!) {
       if (el is ASN1Sequence) {
         PaceInfo pi = PaceInfo(content: el);
         paceInfo = pi; // Save the first PACEInfo you find
