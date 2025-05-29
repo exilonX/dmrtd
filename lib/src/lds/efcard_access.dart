@@ -4,6 +4,7 @@
 import 'dart:typed_data';
 
 import 'package:dmrtd/extensions.dart';
+import 'package:dmrtd/src/lds/asn1ObjectIdentifiers.dart';
 import "package:dmrtd/src/lds/df1/dg.dart";
 import "package:dmrtd/src/extension/logging_apis.dart";
 import 'package:logging/logging.dart';
@@ -80,9 +81,28 @@ class EfCardAccess extends ElementaryFile {
     // Walk all elements in the set
     for (var el in elements!) {
       if (el is ASN1Sequence) {
-        PaceInfo pi = PaceInfo(content: el);
-        paceInfo = pi; // Save the first PACEInfo you find
-        _log.info("PaceInfo parsed and saved.");
+        // Check first element: should be ASN1ObjectIdentifier and match a known PACE OID
+        if (el.elements != null &&
+            el.elements!.isNotEmpty &&
+            el.elements![0] is ASN1ObjectIdentifier) {
+          String oid = (el.elements![0] as ASN1ObjectIdentifier)
+                  .objectIdentifierAsString ??
+              '';
+          // List of supported OIDs, or check with your protocol OID table
+          if (ASN1ObjectIdentifierType.instance
+              .hasOIDWithIdentifierString(identifierString: oid)) {
+            PaceInfo pi = PaceInfo(content: el);
+            paceInfo = pi; // Save only the first valid PACEInfo you find
+            _log.info("PaceInfo parsed and saved for protocol OID: $oid");
+            // Optionally: break; // Only one PACEInfo is allowed!
+          } else {
+            _log.warning(
+                "Skipping ASN1Sequence with unknown protocol OID: $oid");
+          }
+        } else {
+          _log.warning(
+              "Skipping ASN1Sequence: first element is not OID or empty.");
+        }
       } else if (el.tag == 0x87 || el.tag == 0x88) {
         // Context-specific CA references
         if (paceInfo != null) {
