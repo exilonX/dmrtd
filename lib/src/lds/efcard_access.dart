@@ -38,7 +38,8 @@ class EfCardAccess extends ElementaryFile {
     var parser = ASN1Parser(content);
     if (!parser.hasNext()) {
       _log.error("Invalid structure of EF.CardAccess. No data to parse.");
-      throw EfParseError("Invalid structure of EF.CardAccess. No data to parse.");
+      throw EfParseError(
+          "Invalid structure of EF.CardAccess. No data to parse.");
     }
 
     ASN1Set set = parser.nextObject() as ASN1Set;
@@ -47,25 +48,53 @@ class EfCardAccess extends ElementaryFile {
     // - PaceInfo
     // - PACEDomainParameterInfo
 
-    if (set.elements == null || set.elements!.length < 1) {
-      _log.error("Invalid structure of EF.CardAccess. More than one element in set.");
-      throw EfParseError("Invalid structure of EF.CardAccess. More than one element in set.");
+    // if (set.elements == null || set.elements!.length < 1) {
+    //   _log.error("Invalid structure of EF.CardAccess. More than one element in set.");
+    //   throw EfParseError("Invalid structure of EF.CardAccess. More than one element in set.");
+    // }
+
+    // if (set.elements![0] is! ASN1Sequence ){
+    //   _log.error("Invalid structure of EF.CardAccess. First element in set is not ASN1Sequence.");
+    //   throw EfParseError("Invalid structure of EF.CardAccess. First element in set is not ASN1Sequence.");
+    // }
+
+    // PaceInfo pi = PaceInfo(content: set.elements![0] as ASN1Sequence);
+    // _log.info("PaceInfo parsed.");
+
+    // _log.sdDebug("PaceInfo: $pi");
+
+    // paceInfo = pi;
+
+    // Walk all elements in the set
+    for (var el in set.elements!) {
+      if (el is ASN1Sequence) {
+        PaceInfo pi = PaceInfo(content: el);
+        paceInfo = pi; // Save the first PACEInfo you find
+        _log.info("PaceInfo parsed and saved.");
+      } else if (el.tag == 0x87 || el.tag == 0x88) {
+        // Context-specific CA references
+        if (paceInfo != null) {
+          var bytes = el.valueBytes != null
+              ? el.valueBytes!
+              : Uint8List(
+                  0); // You may need to extract the value properly depending on the ASN1 parser
+          if (el.tag == 0x87) {
+            paceInfo!.certificationAuthorityReference = bytes;
+            _log.info(
+                "Found certificationAuthorityReference (0x87): ${bytes.hex()}");
+          } else {
+            paceInfo!.certificationAuthorityReference2 = bytes;
+            _log.info(
+                "Found certificationAuthorityReference2 (0x88): ${bytes.hex()}");
+          }
+        }
+      } else {
+        _log.warning("Unknown element in EF.CardAccess SET: tag=${el.tag}");
+      }
     }
 
-    if (set.elements![0] is! ASN1Sequence ){
-      _log.error("Invalid structure of EF.CardAccess. First element in set is not ASN1Sequence.");
-      throw EfParseError("Invalid structure of EF.CardAccess. First element in set is not ASN1Sequence.");
-    }
-
-    PaceInfo pi = PaceInfo(content: set.elements![0] as ASN1Sequence);
-    _log.info("PaceInfo parsed.");
-
-    _log.sdDebug("PaceInfo: $pi");
-
-    paceInfo = pi;
-
-    _log.severe("PaceInfo substruct has been saved to efcardaccess member ( paceInfo )");
-
+    _log.severe(
+        "PaceInfo substruct has been saved to efcardaccess member ( paceInfo )");
 
     //TODO: parse PACEDomainParameterInfo(9303 p11, 9.2.1)
     /*
@@ -80,7 +109,6 @@ class EfCardAccess extends ElementaryFile {
         parameterId INTEGER OPTIONAL
       }
      */
-
 
     /*String paceOID = "id-PACE-ECDH-GM-AES-CBC-CMAC-128"; //0.4.0.127.0.7.2.2.4.2.2
     int parameterSpec = 2;

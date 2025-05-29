@@ -432,16 +432,25 @@ class PACE {
     return dynamicAuthenticationData.toBytes();
   }
 
-  static Uint8List generateGeneralAuthenticateDataStep4(
-      {required Uint8List authToken}) {
+  static Uint8List generateGeneralAuthenticateDataStep4({
+    required Uint8List authToken,
+    Uint8List? caRef1,
+    Uint8List? caRef2,
+  }) {
     //the same message for ECDH and DH
     _log.debug("Generating GENERAL AUTHENTICATE (step 4)");
     const DYNAMIC_AUTHENTICATION_DATA_TAG = 0x7C;
     const AUTHENTICATION_TOKEN_TAG = 0x85;
-    TLV authenticationToken = TLV(AUTHENTICATION_TOKEN_TAG, authToken);
-    TLV dynamicAuthenticationData =
-        TLV(DYNAMIC_AUTHENTICATION_DATA_TAG, authenticationToken.toBytes());
+    const CA_REF1_TAG = 0x87;
+    const CA_REF2_TAG = 0x88;
 
+    final set = TLVSet();
+    set.add(TLV(AUTHENTICATION_TOKEN_TAG, authToken));
+    if (caRef1 != null) set.add(TLV(CA_REF1_TAG, caRef1));
+    if (caRef2 != null) set.add(TLV(CA_REF2_TAG, caRef2));
+
+    final dynamicAuthenticationData =
+        TLV(DYNAMIC_AUTHENTICATION_DATA_TAG, set.toBytes());
     _log.sdVerbose(
         "PACE step 4 data: ${dynamicAuthenticationData.toBytes().hex()}");
     return dynamicAuthenticationData.toBytes();
@@ -829,6 +838,9 @@ class PACE {
         print("MAC key:   ${macKey.hex()}");
         print("InputData (T-block): ${calcInputData.hex()}");
         print("AuthToken: ${inputToken.hex()}");
+
+        // final ca1 = efCardAccess.paceInfo?.certificationAuthorityReference;
+        // final ca2 = efCardAccess.paceInfo?.certificationAuthorityReference2;
 
         Uint8List step4data =
             generateGeneralAuthenticateDataStep4(authToken: inputToken);
