@@ -50,6 +50,14 @@ class ICC {
       {required Uint8List data,
       required int ne,
       int cla = ISO7816_CLA.NO_SM}) async {
+    print('APDU: ' +
+        [cla, ISO7816_INS.EXTERNAL_AUTHENTICATE, 0x00, 0x00, data.length]
+            .map((x) => x.toRadixString(16).padLeft(2, '0'))
+            .join(' ') +
+        ' ' +
+        data.hex());
+    print('Data length: ${data.length}');
+
     final rapdu = await _transceive(CommandAPDU(
         cla: cla,
         ins: ISO7816_INS.EXTERNAL_AUTHENTICATE,
