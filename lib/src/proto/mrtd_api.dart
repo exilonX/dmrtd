@@ -213,6 +213,13 @@ class MrtdApi {
     final length = hdr.length.value;
     final hdrLen = hdr.encodedLen;
 
+    if (hdrLen + length > data.length) {
+      _log.warning(
+          '${_pad(indent)}TLV error: not enough data for tag 0x${tag.value.hex()}, length $length. Only ${data.length - hdrLen} bytes available.');
+      // Option 1: Return early and skip this TLV.
+      return;
+    }
+
     // slice out the raw value bytes:
     final valueBytes = data.sublist(hdrLen, hdrLen + length);
 
@@ -227,8 +234,15 @@ class MrtdApi {
       int offset = 0;
       while (offset < valueBytes.length) {
         // decode next child
+        final remaining = valueBytes.length - offset;
+
         final childHdr = TLV.decodeTagAndLength(valueBytes.sublist(offset));
         final childTotal = childHdr.encodedLen + childHdr.length.value;
+        if (childTotal > remaining) {
+          _log.warning(
+              '${_pad(indent + 2)}Nested TLV error: not enough bytes for child tag 0x${childHdr.tag.value.hex()}, length ${childHdr.length.value}.');
+          break;
+        }
 
         // recurse
         _dumpTlv(
