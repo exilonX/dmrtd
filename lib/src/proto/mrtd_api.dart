@@ -1,6 +1,8 @@
 // Created by Crt Vavros, copyright © 2022 ZeroPass. All rights reserved.
 import 'dart:typed_data';
 
+import 'package:dmrtd/dmrtd.dart';
+
 import 'access_key.dart';
 import 'bac.dart';
 import 'dba_key.dart';
@@ -230,7 +232,9 @@ class MrtdApi {
 
     // only if the tag byte has the constructed bit set (0x20),
     // treat the value as containing nested TLVs:
-    if ((tag.value & 0x20) == 0x20) {
+    if ((tag.value & 0x20) == 0x20 &&
+        tag.value != EfDG2.BIOMETRIC_DATA_BLOCK_TAG &&
+        tag.value != EfDG2.BIOMETRIC_DATA_BLOCK_CONSTRUCTED_TAG) {
       int offset = 0;
       while (offset < valueBytes.length) {
         // decode next child
