@@ -6,7 +6,7 @@ import 'access_key.dart';
 import '../crypto/kdf.dart';
 
 class PinKey extends AccessKey {
-  static final _log = Logger("AccessKey.CanKeys");
+  static final _log = Logger("AccessKey.PinKeys");
 
   @override
   int PACE_REF_KEY_TAG = 0x03; // ICAO: 0x03 = PIN
