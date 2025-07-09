@@ -341,9 +341,8 @@ class PACE {
 
       if (ephemeralPublic.agreementAlgorithm == TOKEN_AGREEMENT_ALGO.ECDH) {
         // ECDH
-        Uint8List uncompressedPoint = Uint8List.fromList([UNCOMPRESSED_POINT]);
-        publicKeyData = TLV(ELLIPTIC_CURVE_POINT,
-            Uint8List.fromList(uncompressedPoint + ephemeralPublic.toBytes()));
+        // Uint8List uncompressedPoint = Uint8List.fromList([UNCOMPRESSED_POINT]);
+        publicKeyData = TLV(ELLIPTIC_CURVE_POINT, ephemeralPublic.toBytes());
         _log.sdVerbose("Public key EC: ${publicKeyData.toBytes().hex()}");
       } else {
         // DH
