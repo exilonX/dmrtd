@@ -338,7 +338,18 @@ class ECDHPace {
 
     ECDHBasicAgreementPACE keyAgreement = ECDHBasicAgreementPACE()
       ..init(_privEphemeral!);
-    return keyAgreement.calculateAgreementAndReturnPoint(otherEphemeralPubKey);
+    final sharedPoint =
+        keyAgreement.calculateAgreementAndReturnPoint(otherEphemeralPubKey);
+
+    // ==> ADD THIS LOGGING BLOCK <==
+    final sharedSecretK =
+        Utils.bigIntToUint8List(bigInt: sharedPoint.x!.toBigInteger()!);
+    _log.severe("--- PointyCastle Result ---");
+    _log.severe("Shared Secret (K): ${sharedSecretK.hex()}");
+    _log.severe("==========================");
+    // ==> END LOGGING BLOCK <==
+
+    return sharedPoint;
   }
 
   // ECPoint getMappedGenerator(
