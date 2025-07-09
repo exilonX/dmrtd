@@ -445,10 +445,9 @@ class PACE {
     bool isEphemeral = false, // step 2 (static) vs. step 3 (ephemeral)
   }) {
     const outerTag = 0x7C;
-    const staticTag = 0x81;
-    const ephemeralTag = 0x83;
 
-    final mappingTag = isEphemeral ? ephemeralTag : staticTag;
+    final int innerTag =
+        isEphemeral ? (isEcdh ? 0x83 : 0x84) : (isEcdh ? 0x81 : 0x82);
     Uint8List value;
 
     if (isEcdh) {
@@ -460,7 +459,7 @@ class PACE {
     }
 
     // build inner TLV (0x81 or 0x83)
-    final inner = TLV(mappingTag, value);
+    final inner = TLV(innerTag, value);
 
     // wrap that in outer 0x7C
     final outer = TLV(outerTag, inner.toBytes());
