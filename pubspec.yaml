@@ -21,7 +21,7 @@ dependencies:
   logging: ^1.3.0
   meta: ^1.15.0
   tripledes_nullsafety: ^1.0.3
-  pointycastle: ^3.9.1
+  pointycastle: ^3.7.4
   diffie_hellman: ^0.1.2
   crypto_keys_plus: ^0.4.0 # till cypto_keys lib is not updated
 
