@@ -115,7 +115,8 @@ class ECDHPace {
     return forReturn;
   }
 
-  static PublicKeyPACEeCDH ecPointToList({required ECPoint point}) {
+  static PublicKeyPACEeCDH ecPointToList(
+      {required ECPoint point, required int fieldSize}) {
     BigInt? x = point.x!.toBigInteger();
     BigInt? y = point.y!.toBigInteger();
 
@@ -125,7 +126,7 @@ class ECDHPace {
       throw ECDHPaceError(
           "Public key has no parameters(as BigInteger). Something went wrong in PC library.");
     }
-    return PublicKeyPACEeCDH(x: x, y: y);
+    return PublicKeyPACEeCDH(x: x, y: y, fieldSizeInBits: fieldSize);
   }
 
   void generateKeyPairFromPriv({required Uint8List privKey}) {
@@ -173,7 +174,7 @@ class ECDHPace {
     _priv = keyPair.privateKey as ECPrivateKey;
     _pub = keyPair.publicKey as ECPublicKey;
     _log.sdDebug(
-        "Generated public key: ${ecPointToList(point: _pub!.Q!).toString()}");
+        "Generated public key: ${ecPointToList(point: _pub!.Q!, fieldSize: selectedDomainParameter.size).toString()}");
     _log.sdShout(
         "Generated private key: ${Utils.bigIntToUint8List(bigInt: _priv!.d!).hex()}");
   }
@@ -192,7 +193,7 @@ class ECDHPace {
     }
 
     _log.sdVerbose(
-        "Mapped generator: ${ecPointToList(point: mappedGenerator).toString()}");
+        "Mapped generator: ${ecPointToList(point: mappedGenerator, fieldSize: selectedDomainParameter.size).toString()}");
 
     var secureRandom = SecureRandom("Fortuna")..seed(KeyParameter(seed32byte));
     _log.debug("Seed is calculated. Generating key pair (Generator - EC) ...");
@@ -220,7 +221,7 @@ class ECDHPace {
     }
 
     _log.sdDebug(
-        "Ephemeral public key: ${ecPointToList(point: _pubEphemeral!.Q!).toString()}");
+        "Ephemeral public key: ${ecPointToList(point: _pubEphemeral!.Q!, fieldSize: selectedDomainParameter.size).toString()}");
     _log.sdVerbose(
         "Ephemeral private key(x): ${Utils.bigIntToUint8List(bigInt: _privEphemeral!.d!).hex()}");
   }
@@ -268,7 +269,8 @@ class ECDHPace {
       throw ECDHPaceError(
           "Public key has no parameters(as BigInteger). Something went wrong in PC library.");
     }
-    return PublicKeyPACEeCDH(x: x, y: y);
+    return PublicKeyPACEeCDH(
+        x: x, y: y, fieldSizeInBits: selectedDomainParameter.size);
   }
 
   PublicKeyPACEeCDH getPubKeyEphemeral() {
@@ -294,7 +296,8 @@ class ECDHPace {
       throw ECDHPaceError(
           "Public ephemeral key has no parameters(as BigInteger). Something went wrong in PC library.");
     }
-    return PublicKeyPACEeCDH(x: x, y: y);
+    return PublicKeyPACEeCDH(
+        x: x, y: y, fieldSizeInBits: selectedDomainParameter.size);
   }
 
   ECPoint getSharedSecret({required ECPublicKey otherPubKey}) {

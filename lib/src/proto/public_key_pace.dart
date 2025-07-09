@@ -24,12 +24,16 @@ abstract class PublicKeyPACE {
 class PublicKeyPACEeCDH extends PublicKeyPACE {
   final BigInt _x;
   final BigInt _y;
-  PublicKeyPACEeCDH({required BigInt x, required BigInt y})
+  final int fieldSizeInBits; // We need this to know how much to pad
+
+  PublicKeyPACEeCDH(
+      {required BigInt x, required BigInt y, required this.fieldSizeInBits})
       : _x = x,
         _y = y,
         super(algo: TOKEN_AGREEMENT_ALGO.ECDH);
 
-  PublicKeyPACEeCDH.fromECPoint({required ECPoint public})
+  PublicKeyPACEeCDH.fromECPoint(
+      {required ECPoint public, required this.fieldSizeInBits})
       : _x = public.x!.toBigInteger()!,
         _y = public.y!.toBigInteger()!,
         super(algo: TOKEN_AGREEMENT_ALGO.ECDH);
@@ -42,16 +46,33 @@ class PublicKeyPACEeCDH extends PublicKeyPACE {
 
   @override
   Uint8List toBytes() {
-    // just X||Y
-    return Uint8List.fromList([...xBytes, ...yBytes]);
+    // This is the fixed part. It now formats the public key correctly for PACE.
+    // SEC1 format: 0x04 || Padded-X || Padded-Y
+    final int fieldSizeInBytes = (fieldSizeInBits / 8).ceil();
+
+    final xBytes = Utils.bigIntToUint8List(bigInt: x);
+    final yBytes = Utils.bigIntToUint8List(bigInt: y);
+
+    final paddedX = Uint8List(fieldSizeInBytes);
+    final paddedY = Uint8List(fieldSizeInBytes);
+
+    // Copy the bytes to the end of the padded list (this creates left-padding with zeros)
+    paddedX.setRange(
+        fieldSizeInBytes - xBytes.length, fieldSizeInBytes, xBytes);
+    paddedY.setRange(
+        fieldSizeInBytes - yBytes.length, fieldSizeInBytes, yBytes);
+
+    return Uint8List.fromList([0x04, ...paddedX, ...paddedY]);
   }
 
   @override
   Uint8List toRelavantBytes() => toBytes();
 
-  PublicKeyPACEeCDH.fromHex({required Uint8List hexKey})
+  PublicKeyPACEeCDH.fromHex(
+      {required Uint8List hexKey, required int fieldSizeInBits})
       : _x = Utils.uint8ListToBigInt(hexKey.sublist(0, hexKey.length ~/ 2)),
         _y = Utils.uint8ListToBigInt(hexKey.sublist(hexKey.length ~/ 2)),
+        fieldSizeInBits = fieldSizeInBits,
         super(algo: TOKEN_AGREEMENT_ALGO.ECDH);
 
   @override

@@ -168,7 +168,9 @@ class ResponseAPDUStep2or3Pace {
 
   ResponseAPDUStep2or3Pace(this.data);
 
-  void parse({required TOKEN_AGREEMENT_ALGO tokenAgreementAlgorithm}) {
+  void parse(
+      {required TOKEN_AGREEMENT_ALGO tokenAgreementAlgorithm,
+      required int fieldSize}) {
     //checking if response has data
     if (this.data == null) {
       _log.error("Pace.step2; Response data is null");
@@ -228,7 +230,8 @@ class ResponseAPDUStep2or3Pace {
         throw ResponseAPDUStep2or3PaceError(
             "Pace.step2 or 3; Mapping data contains EC public key, but length is odd number. No X and Y component.");
       }
-      _public = PublicKeyPACEeCDH.fromHex(hexKey: hexPublic);
+      _public = PublicKeyPACEeCDH.fromHex(
+          hexKey: hexPublic, fieldSizeInBits: fieldSize);
     } else {
       // DH
       _log.verbose("Pace.step2 or 3; Mapping data contains DH public key");
@@ -748,7 +751,8 @@ class PACE {
         ResponseAPDUStep2or3Pace apduStep2Pace =
             ResponseAPDUStep2or3Pace(step2Response);
         apduStep2Pace.parse(
-            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm);
+            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm,
+            fieldSize: domainParameter.selectedDomainParameter.size);
 
         //get public key from ICC
         publicICCenvelope = apduStep2Pace.public as PublicKeyPACEeCDH;
@@ -773,7 +777,7 @@ class PACE {
             "[PACE Step3] Mapped generator encoded: ${generatorPoint.getEncoded(false).hex()}");
 
         _log.sdVerbose(
-            "Generator point: ${ECDHPace.ecPointToList(point: generatorPoint).toString()}");
+            "Generator point: ${ECDHPace.ecPointToList(point: generatorPoint, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
         domainParameter.generateKeyPairWithCustomGenerator(
             mappedGenerator: generatorPoint);
 
@@ -806,7 +810,7 @@ class PACE {
         _log.info(
             "PACE step 3 ephemeral public key (raw): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
         _log.info(
-            "Mapped generator (EC point): ${ECDHPace.ecPointToList(point: generatorPoint).toString()}");
+            "Mapped generator (EC point): ${ECDHPace.ecPointToList(point: generatorPoint, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
         _log.info("GENERAL AUTHENTICATE APDU data (hex): ${step3data.hex()}");
 
         final tlv = TLV.fromBytes(step3data);
@@ -831,7 +835,8 @@ class PACE {
         ResponseAPDUStep2or3Pace apduStep2Pace =
             ResponseAPDUStep2or3Pace(step3Response);
         apduStep2Pace.parse(
-            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm);
+            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm,
+            fieldSize: domainParameter.selectedDomainParameter.size);
         ephemeralPublicICCenvelope = apduStep2Pace.public as PublicKeyPACEeCDH;
         _log.debug("PACE step 3 response from ICC is valid");
         _log.sdVerbose(
@@ -847,15 +852,17 @@ class PACE {
             domainParameter.transformPublic(pubKey: ephemeralPublicICCenvelope);
         _log.debug("Epehemeral public key is successfully transformed");
         _log.sdVerbose(
-            "Ephemeral public ICC key: ${ECDHPace.ecPointToList(point: ephemeralPublicICCkey.Q!).toString()}");
+            "Ephemeral public ICC key: ${ECDHPace.ecPointToList(point: ephemeralPublicICCkey.Q!, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
         ECPoint ephemeralSharedSecretKey =
             domainParameter.getEphemeralSharedSecret(
                 otherEphemeralPubKey: ephemeralPublicICCkey);
 
         _log.sdVerbose("Ephemeral shared secret (X, Y): "
-            "${ECDHPace.ecPointToList(point: ephemeralSharedSecretKey).toBytes().hex()}");
+            "${ECDHPace.ecPointToList(point: ephemeralSharedSecretKey, fieldSize: domainParameter.selectedDomainParameter.size).toBytes().hex()}");
 
-        Uint8List seed = ECDHPace.ecPointToList(point: ephemeralSharedSecretKey)
+        Uint8List seed = ECDHPace.ecPointToList(
+                point: ephemeralSharedSecretKey,
+                fieldSize: domainParameter.selectedDomainParameter.size)
             .toRelavantBytes();
         _log.sdVerbose("Seed: ${seed.hex()}");
 
@@ -1016,7 +1023,8 @@ class PACE {
         ResponseAPDUStep2or3Pace apduStep2Pace =
             ResponseAPDUStep2or3Pace(step2Response);
         apduStep2Pace.parse(
-            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm);
+            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm,
+            fieldSize: domainParameter.selectedDomainParameter.size);
 
         //get public key from ICC
         publicICCenvelope = apduStep2Pace.public as PublicKeyPACEdH;
@@ -1057,7 +1065,8 @@ class PACE {
         ResponseAPDUStep2or3Pace apduStep2Pace =
             ResponseAPDUStep2or3Pace(step3Response);
         apduStep2Pace.parse(
-            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm);
+            tokenAgreementAlgorithm: paceProtocol.tokenAgreementAlgorithm,
+            fieldSize: domainParameter.selectedDomainParameter.size);
         ephemeralPublicICCenvelope = apduStep2Pace.public as PublicKeyPACEdH;
         _log.debug("PACE step 3 response from ICC is valid");
         _log.sdVerbose(
