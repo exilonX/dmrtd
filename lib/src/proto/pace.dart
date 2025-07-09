@@ -435,36 +435,28 @@ class PACE {
   //   return dynamicAuthenticationData.toBytes();
   // }
 
-  /// Wraps an EC point X‖Y into the uncompressed SEC1 format: 0x04‖X‖Y
-  static Uint8List _addSec1Prefix(Uint8List xy) {
-    return Uint8List.fromList([0x04] + xy);
-  }
-
   /// Build the TLV for GENERAL AUTHENTICATE step 2 or 3,
   /// handling both PACE‐ECDH and legacy DH keys.
   static Uint8List generateGeneralAuthenticateDataStep2and3({
     required Uint8List publicKeyBytes,
-    required bool isEcdh, // true for PACE/ECDH, false for BAC/DH
+    required bool isEcdh, // true for PACE/ECDH, false for legacy DH
     bool isEphemeral = false, // step 2 (static) vs. step 3 (ephemeral)
   }) {
     const outerTag = 0x7C;
 
+    // The isEcdh flag is CRITICAL here to select the correct command tag.
     final int innerTag =
         isEphemeral ? (isEcdh ? 0x83 : 0x84) : (isEcdh ? 0x81 : 0x82);
-    Uint8List value;
 
-    if (isEcdh) {
-      // for ECDH we MUST prefix 0x04 to get uncompressed SEC1
-      value = _addSec1Prefix(publicKeyBytes);
-    } else {
-      // for plain DH we send the raw MPI
-      value = publicKeyBytes;
-    }
+    // The value is now always the raw publicKeyBytes, because the formatting
+    // (adding the 0x04 prefix for ECDH) is now correctly handled upstream
+    // in the PublicKeyPACEeCDH.toBytes() method.
+    final Uint8List value = publicKeyBytes;
 
-    // build inner TLV (0x81 or 0x83)
+    // Build inner TLV (e.g., 0x81 or 0x83)
     final inner = TLV(innerTag, value);
 
-    // wrap that in outer 0x7C
+    // Wrap that in outer 0x7C
     final outer = TLV(outerTag, inner.toBytes());
     return outer.toBytes();
   }
