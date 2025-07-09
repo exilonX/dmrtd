@@ -851,11 +851,23 @@ class PACE {
         _log.sdVerbose("Ephemeral shared secret (X, Y): "
             "${ECDHPace.ecPointToList(point: ephemeralSharedSecretKey, fieldSize: domainParameter.selectedDomainParameter.size).toBytes().hex()}");
 
-        Uint8List seed = ECDHPace.ecPointToList(
-                point: ephemeralSharedSecretKey,
-                fieldSize: domainParameter.selectedDomainParameter.size)
-            .toRelavantBytes();
-        _log.sdVerbose("Seed: ${seed.hex()}");
+        // Uint8List seed = ECDHPace.ecPointToList(
+        //         point: ephemeralSharedSecretKey,
+        //         fieldSize: domainParameter.selectedDomainParameter.size)
+        //     .toRelavantBytes();
+        // _log.sdVerbose("Seed: ${seed.hex()}");
+
+        final BigInt xCoord = ephemeralSharedSecretKey.x!.toBigInteger()!;
+        final int fieldSizeInBytes =
+            (domainParameter.selectedDomainParameter.size / 8).ceil();
+
+        final Uint8List seed = Uint8List(fieldSizeInBytes);
+        final xBytes = Utils.bigIntToUint8List(bigInt: xCoord);
+
+// Manually left-pad the x-coordinate with zeros to match the field size.
+        seed.setRange(
+            fieldSizeInBytes - xBytes.length, fieldSizeInBytes, xBytes);
+        _log.sdVerbose("Seed (x-coordinate of shared secret): ${seed.hex()}");
 
         Uint8List encKey =
             PACE.cacluateEncKey(paceProtocol: paceProtocol, seed: seed);
