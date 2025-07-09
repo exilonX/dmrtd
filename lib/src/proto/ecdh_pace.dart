@@ -323,6 +323,19 @@ class ECDHPace {
           "Ephemeral private key is null. Generate key pair first.");
     }
 
+    // ==> ADD THIS LOGGING BLOCK <==
+    final d = _privEphemeral!.d!;
+    final Q = otherEphemeralPubKey.Q!;
+    _log.severe("== CRYPTO VERIFICATION INPUTS ==");
+    _log.severe("CURVE: ${domainParameters.domainName}");
+    _log.severe("PRIVATE_SCALAR (d): ${d.toRadixString(16)}");
+    _log.severe(
+        "PUBLIC_POINT_X (Q.x): ${Q.x!.toBigInteger()!.toRadixString(16)}");
+    _log.severe(
+        "PUBLIC_POINT_Y (Q.y): ${Q.y!.toBigInteger()!.toRadixString(16)}");
+    _log.severe("==============================");
+    // ==> END LOGGING BLOCK <==
+
     ECDHBasicAgreementPACE keyAgreement = ECDHBasicAgreementPACE()
       ..init(_privEphemeral!);
     return keyAgreement.calculateAgreementAndReturnPoint(otherEphemeralPubKey);
