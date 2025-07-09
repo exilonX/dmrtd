@@ -399,37 +399,72 @@ class PACE {
     return TLVEmpty(ABSENT_TAG).toBytes();
   }
 
-  static Uint8List generateGeneralAuthenticateDataStep2and3(
-      {required PublicKeyPACE public, bool isEphemeral = false}) {
-    //the same message for ECDH and DH
-    _log.debug(
-        "Generating GENERAL AUTHENTICATE (step 2 (or 3)) data: Is ephemeral: $isEphemeral ...");
-    const DYNAMIC_AUTHENTICATION_DATA_TAG = 0x7C;
-    const MAPPING_DATA_TAG = 0x81;
-    const MAPPING_DATA_EPHEMERAL_TAG = 0x83;
-    const UNCOMPRESSED_POINT = 0x04;
-    var PUBLIC_KEY_TAG =
-        isEphemeral ? MAPPING_DATA_EPHEMERAL_TAG : MAPPING_DATA_TAG;
+  // static Uint8List generateGeneralAuthenticateDataStep2and3(
+  //     {required PublicKeyPACE public, bool isEphemeral = false}) {
+  //   //the same message for ECDH and DH
+  //   _log.debug(
+  //       "Generating GENERAL AUTHENTICATE (step 2 (or 3)) data: Is ephemeral: $isEphemeral ...");
+  //   const DYNAMIC_AUTHENTICATION_DATA_TAG = 0x7C;
+  //   const MAPPING_DATA_TAG = 0x81;
+  //   const MAPPING_DATA_EPHEMERAL_TAG = 0x83;
+  //   const UNCOMPRESSED_POINT = 0x04;
+  //   var PUBLIC_KEY_TAG =
+  //       isEphemeral ? MAPPING_DATA_EPHEMERAL_TAG : MAPPING_DATA_TAG;
 
-    TLV mappingData;
-    if (public.agreementAlgorithm == TOKEN_AGREEMENT_ALGO.ECDH) {
-      // ECDH
-      Uint8List uncompressedPoint = Uint8List.fromList([UNCOMPRESSED_POINT]);
-      mappingData = TLV(PUBLIC_KEY_TAG,
-          Uint8List.fromList(uncompressedPoint + public.toBytes()));
-      _log.sdVerbose("ECDH data: ${mappingData.toBytes().hex()}");
+  //   TLV mappingData;
+  //   if (public.agreementAlgorithm == TOKEN_AGREEMENT_ALGO.ECDH) {
+  //     // ECDH
+  //     Uint8List uncompressedPoint = Uint8List.fromList([UNCOMPRESSED_POINT]);
+  //     mappingData = TLV(PUBLIC_KEY_TAG,
+  //         Uint8List.fromList(uncompressedPoint + public.toBytes()));
+  //     _log.sdVerbose("ECDH data: ${mappingData.toBytes().hex()}");
+  //   } else {
+  //     // DH
+  //     mappingData = TLV(PUBLIC_KEY_TAG, public.toBytes());
+  //     _log.sdVerbose("DH data: ${mappingData.toBytes().hex()}");
+  //   }
+
+  //   TLV dynamicAuthenticationData =
+  //       TLV(DYNAMIC_AUTHENTICATION_DATA_TAG, mappingData.toBytes());
+
+  //   _log.sdVerbose(
+  //       "PACE step 2 (or 3) data: ${dynamicAuthenticationData.toBytes().hex()}");
+  //   return dynamicAuthenticationData.toBytes();
+  // }
+
+  /// Wraps an EC point X‖Y into the uncompressed SEC1 format: 0x04‖X‖Y
+  static Uint8List _addSec1Prefix(Uint8List xy) {
+    return Uint8List.fromList([0x04] + xy);
+  }
+
+  /// Build the TLV for GENERAL AUTHENTICATE step 2 or 3,
+  /// handling both PACE‐ECDH and legacy DH keys.
+  static Uint8List generateGeneralAuthenticateDataStep2and3({
+    required Uint8List publicKeyBytes,
+    required bool isEcdh, // true for PACE/ECDH, false for BAC/DH
+    bool isEphemeral = false, // step 2 (static) vs. step 3 (ephemeral)
+  }) {
+    const outerTag = 0x7C;
+    const staticTag = 0x81;
+    const ephemeralTag = 0x83;
+
+    final mappingTag = isEphemeral ? ephemeralTag : staticTag;
+    Uint8List value;
+
+    if (isEcdh) {
+      // for ECDH we MUST prefix 0x04 to get uncompressed SEC1
+      value = _addSec1Prefix(publicKeyBytes);
     } else {
-      // DH
-      mappingData = TLV(PUBLIC_KEY_TAG, public.toBytes());
-      _log.sdVerbose("DH data: ${mappingData.toBytes().hex()}");
+      // for plain DH we send the raw MPI
+      value = publicKeyBytes;
     }
 
-    TLV dynamicAuthenticationData =
-        TLV(DYNAMIC_AUTHENTICATION_DATA_TAG, mappingData.toBytes());
+    // build inner TLV (0x81 or 0x83)
+    final inner = TLV(mappingTag, value);
 
-    _log.sdVerbose(
-        "PACE step 2 (or 3) data: ${dynamicAuthenticationData.toBytes().hex()}");
-    return dynamicAuthenticationData.toBytes();
+    // wrap that in outer 0x7C
+    final outer = TLV(outerTag, inner.toBytes());
+    return outer.toBytes();
   }
 
   static Uint8List generateGeneralAuthenticateDataStep4({
@@ -699,8 +734,12 @@ class PACE {
         print(publicKeyPaceTerminal.x.toString());
         print(publicKeyPaceTerminal.y.toString());
 
-        Uint8List step2data = generateGeneralAuthenticateDataStep2and3(
-            public: publicKeyPaceTerminal);
+        final staticXy = domainParameter.getPubKey().toBytes(); // X||Y
+        final step2data = generateGeneralAuthenticateDataStep2and3(
+          publicKeyBytes: staticXy,
+          isEcdh: true,
+          isEphemeral: false,
+        );
 
         print("Step 2 data: ${step2data.hex()}");
         final step2Response =
@@ -757,8 +796,13 @@ class PACE {
         _log.sdVerbose(
             "Public key (ephemeral): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
 
-        Uint8List step3data = generateGeneralAuthenticateDataStep2and3(
-            public: publicKeyEphemeralPaceTerminal, isEphemeral: true);
+        final ephXy = domainParameter.getPubKeyEphemeral().toBytes();
+        final step3data = generateGeneralAuthenticateDataStep2and3(
+          publicKeyBytes: ephXy,
+          isEcdh: true,
+          isEphemeral: true,
+        );
+        // await icc.generalAuthenticatePACEstep2and3(data: step3);
 
         _log.info(
             "PACE step 3 ephemeral public key (raw): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
@@ -962,7 +1006,10 @@ class PACE {
         _log.sdVerbose("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
 
         Uint8List step2data = generateGeneralAuthenticateDataStep2and3(
-            public: publicKeyPaceTerminal);
+          publicKeyBytes: publicKeyPaceTerminal.toBytes(),
+          isEcdh: false,
+          isEphemeral: false,
+        );
         final step2Response =
             await icc.generalAuthenticatePACEstep2and3(data: step2data);
         //here the response is always 9000, otherwise exception is thrown
@@ -1000,7 +1047,10 @@ class PACE {
             "Public key (ephemeral): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
 
         Uint8List step3data = generateGeneralAuthenticateDataStep2and3(
-            public: publicKeyEphemeralPaceTerminal, isEphemeral: true);
+            publicKeyBytes: publicKeyEphemeralPaceTerminal.toBytes(),
+            isEcdh: false,
+            isEphemeral: true);
+
         final step3Response =
             await icc.generalAuthenticatePACEstep2and3(data: step3data);
         //here the response is always 9000, otherwise exception is thrown
