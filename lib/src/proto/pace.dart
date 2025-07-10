@@ -712,31 +712,31 @@ class PACE {
       //       "PACE.decryptNonce; Nonce validation failed. Incorrect CAN.");
       // }
 
-      _log.severe("== NONCE ANALYSIS ==");
-      _log.severe("Decrypted Nonce (raw): ${decryptedNonce.hex()}");
-      _log.severe("Decrypted Nonce Length: ${decryptedNonce.length} bytes");
+      // _log.severe("== NONCE ANALYSIS ==");
+      // _log.severe("Decrypted Nonce (raw): ${decryptedNonce.hex()}");
+      // _log.severe("Decrypted Nonce Length: ${decryptedNonce.length} bytes");
 
-      try {
-        final domainParameter = DomainParameterSelectorECDH.getDomainParameter(
-            id: paceDomainParameterId);
-        final curveParams = domainParameter.domainParameters;
-        final fieldSizeInBytes = (curveParams.curve.fieldSize / 8).ceil();
+      // try {
+      //   final domainParameter = DomainParameterSelectorECDH.getDomainParameter(
+      //       id: paceDomainParameterId);
+      //   final curveParams = domainParameter.domainParameters;
+      //   final fieldSizeInBytes = (curveParams.curve.fieldSize / 8).ceil();
 
-        if (decryptedNonce.length == 2 * fieldSizeInBytes) {
-          _log.info("Nonce has the correct length for a 64-byte public key.");
-          final x = Utils.uint8ListToBigInt(
-              decryptedNonce.sublist(0, fieldSizeInBytes));
-          final y =
-              Utils.uint8ListToBigInt(decryptedNonce.sublist(fieldSizeInBytes));
-          curveParams.curve.createPoint(x, y);
-        } else {
-          _log.warning(
-              "Nonce is NOT a 64-byte public key. It's something else.");
-        }
-      } catch (e) {
-        _log.error("Error during nonce validation check: $e");
-      }
-      _log.severe("====================");
+      //   if (decryptedNonce.length == 2 * fieldSizeInBytes) {
+      //     _log.info("Nonce has the correct length for a 64-byte public key.");
+      //     final x = Utils.uint8ListToBigInt(
+      //         decryptedNonce.sublist(0, fieldSizeInBytes));
+      //     final y =
+      //         Utils.uint8ListToBigInt(decryptedNonce.sublist(fieldSizeInBytes));
+      //     curveParams.curve.createPoint(x, y);
+      //   } else {
+      //     _log.warning(
+      //         "Nonce is NOT a 64-byte public key. It's something else.");
+      //   }
+      // } catch (e) {
+      //   _log.error("Error during nonce validation check: $e");
+      // }
+      // _log.severe("====================");
 
       return decryptedNonce;
     } on Exception catch (e) {

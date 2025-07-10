@@ -77,7 +77,7 @@ class EfCardAccess extends ElementaryFile {
     // _log.sdDebug("PaceInfo: $pi");
 
     // paceInfo = pi;
-    List<PaceInfo> supportedPaceInfos = [];
+    // List<PaceInfo> supportedPaceInfos = [];
 
     // Walk all elements in the set
     for (var el in elements!) {
@@ -93,8 +93,8 @@ class EfCardAccess extends ElementaryFile {
           if (ASN1ObjectIdentifierType.instance
               .hasOIDWithIdentifierString(identifierString: oid)) {
             PaceInfo pi = PaceInfo(content: el);
-            // paceInfo = pi; // Save only the first valid PACEInfo you find
-            supportedPaceInfos.add(pi);
+            paceInfo = pi; // Save only the first valid PACEInfo you find
+            // supportedPaceInfos.add(pi);
             _log.info("PaceInfo parsed and saved for protocol OID: $oid");
             // Optionally: break; // Only one PACEInfo is allowed!
           } else {
@@ -127,25 +127,25 @@ class EfCardAccess extends ElementaryFile {
       }
     }
 
-    // Now, after the loop, choose the best one.
-    if (supportedPaceInfos.isNotEmpty) {
-      // Log all support Pace info founds
-      _log.info(
-          "Found ${supportedPaceInfos.length} supported PACE protocols in EF.CardAccess:");
-      for (var info in supportedPaceInfos) {
-        _log.info(
-            " - Protocol: ${info.protocol.readableName}, Parameter ID: ${info.parameterId}");
-      }
-      // Prioritize NIST P-256 (ID 12) if available
-      var selected = supportedPaceInfos.firstWhere(
-        (p) => p.parameterId == 12, // secp256r1
-        orElse: () =>
-            supportedPaceInfos.first, // fallback to the first one found
-      );
-      paceInfo = selected;
-      _log.info(
-          "Selected PACE protocol: ${this.paceInfo!.protocol.readableName} with param ID ${this.paceInfo!.parameterId}");
-    }
+    // // Now, after the loop, choose the best one.
+    // if (supportedPaceInfos.isNotEmpty) {
+    //   // Log all support Pace info founds
+    //   _log.info(
+    //       "Found ${supportedPaceInfos.length} supported PACE protocols in EF.CardAccess:");
+    //   for (var info in supportedPaceInfos) {
+    //     _log.info(
+    //         " - Protocol: ${info.protocol.readableName}, Parameter ID: ${info.parameterId}");
+    //   }
+    //   // Prioritize NIST P-256 (ID 12) if available
+    //   var selected = supportedPaceInfos.firstWhere(
+    //     (p) => p.parameterId == 12, // secp256r1
+    //     orElse: () =>
+    //         supportedPaceInfos.first, // fallback to the first one found
+    //   );
+    //   paceInfo = selected;
+    //   _log.info(
+    //       "Selected PACE protocol: ${this.paceInfo!.protocol.readableName} with param ID ${this.paceInfo!.parameterId}");
+    // }
 
     _log.severe(
         "PaceInfo substruct has been saved to efcardaccess member ( paceInfo )");
