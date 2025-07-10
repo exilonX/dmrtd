@@ -62,16 +62,16 @@ class DBAKey extends AccessKey {
         "Cipher algorithm: $cipherAlgorithm");
 
     if (cipherAlgorithm == CipherAlgorithm.DESede) {
-      return DeriveKey.desEDE(keySeed);
+      return DeriveKey.desEDE(keySeed, paceMode: true);
     } else if (cipherAlgorithm == CipherAlgorithm.AES &&
         keyLength == KEY_LENGTH.s128) {
-      return DeriveKey.aes128(keySeed);
+      return DeriveKey.aes128(keySeed, paceMode: true);
     } else if (cipherAlgorithm == CipherAlgorithm.AES &&
         keyLength == KEY_LENGTH.s192) {
-      return DeriveKey.aes192(keySeed);
+      return DeriveKey.aes192(keySeed, paceMode: true);
     } else if (cipherAlgorithm == CipherAlgorithm.AES &&
         keyLength == KEY_LENGTH.s256) {
-      return DeriveKey.aes256(keySeed);
+      return DeriveKey.aes256(keySeed, paceMode: true);
     } else {
       throw ArgumentError.value(
           cipherAlgorithm, null, "CanKeys; Unsupported cipher algorithm");

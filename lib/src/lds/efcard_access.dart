@@ -136,7 +136,6 @@ class EfCardAccess extends ElementaryFile {
         _log.info(
             " - Protocol: ${info.protocol.readableName}, Parameter ID: ${info.parameterId}");
       }
-
       // Prioritize NIST P-256 (ID 12) if available
       var selected = supportedPaceInfos.firstWhere(
         (p) => p.parameterId == 12, // secp256r1

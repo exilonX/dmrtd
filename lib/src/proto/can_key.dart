@@ -47,16 +47,16 @@ class CanKey extends AccessKey {
   Uint8List Kpi(CipherAlgorithm cipherAlgorithm, KEY_LENGTH keyLength) {
     if (cipherAlgorithm == CipherAlgorithm.DESede) {
       //_cachedSeed = KDF(sha1, _can, Int32(3)).sublist(0, seedLen);
-      return DeriveKey.desEDE(_can);
+      return DeriveKey.desEDE(_can, paceMode: true);
     } else if (cipherAlgorithm == CipherAlgorithm.AES &&
         keyLength == KEY_LENGTH.s128) {
-      return DeriveKey.aes128(_can);
+      return DeriveKey.aes128(_can, paceMode: true);
     } else if (cipherAlgorithm == CipherAlgorithm.AES &&
         keyLength == KEY_LENGTH.s192) {
-      return DeriveKey.aes192(_can);
+      return DeriveKey.aes192(_can, paceMode: true);
     } else if (cipherAlgorithm == CipherAlgorithm.AES &&
         keyLength == KEY_LENGTH.s256) {
-      return DeriveKey.aes256(_can);
+      return DeriveKey.aes256(_can, paceMode: true);
     } else {
       throw ArgumentError.value(
           cipherAlgorithm, null, "CanKeys; Unsupported cipher algorithm");

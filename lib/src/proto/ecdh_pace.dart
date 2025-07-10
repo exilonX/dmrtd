@@ -4,6 +4,8 @@ import "dart:typed_data";
 
 import "package:dmrtd/extensions.dart";
 import "package:dmrtd/src/crypto/crypto_utils.dart";
+import "package:dmrtd/src/lds/asn1ObjectIdentifiers.dart";
+import "package:dmrtd/src/proto/pace.dart";
 import "package:dmrtd/src/proto/public_key_pace.dart";
 import "package:dmrtd/src/utils.dart";
 import "package:dmrtd/src/extension/logging_apis.dart";
@@ -433,9 +435,12 @@ class ECDHPace {
   // }
 
   ECPoint getMappedGenerator({
-    // required ECPublicKey otherPubKey,
+    required ECPublicKey otherPubKey,
     required Uint8List nonce,
+    required MAPPING_TYPE mappingType,
   }) {
+    _log.fine("Calculating Mapped Generator using: ${mappingType.name}");
+
     // 1) H = d * Q
     // final ECPoint H = getSharedSecret(otherPubKey: otherPubKey);
 
@@ -456,18 +461,35 @@ class ECDHPace {
       throw ECDHPaceError("Invalid s·G in GM mapping (point at infinity).");
     }
 
+    // 3) Calculate the final mapped generator based on the required mapping type
+    ECPoint mapped;
+    if (mappingType == MAPPING_TYPE.GM) {
+      // GENERIC MAPPING: G' = sG + H
+      if (otherPubKey == null) {
+        throw PACEError(
+            "Generic Mapping requires the card's public key, but it was null.");
+      }
+      _log.fine("Performing Generic Mapping (G' = sG + H).");
+      final ECPoint H = getSharedSecret(otherPubKey: otherPubKey);
+      mapped = (sG + H)!;
+    } else if (mappingType == MAPPING_TYPE.IM) {
+      // INTEGRATED MAPPING: G' = sG
+      _log.fine("Performing Integrated Mapping (G' = sG).");
+      mapped = sG;
+    } else {
+      throw PACEError("Unsupported mapping type: ${mappingType.name}");
+    }
     // // // 5) mapped generator G′ = s·G + H   (addition returns ECPoint?)
     // // final ECPoint mapped = (sG + H)!; // <— note the !
-    // // if (mapped.isInfinity) {
-    // //   throw ECDHPaceError("GM mapping yielded invalid point (at infinity).");
-    // // }
+    if (mapped.isInfinity) {
+      throw ECDHPaceError("GM mapping yielded invalid point (at infinity).");
+    }
 
     _log.sdVerbose(
-        "Mapped generator G′ (X): ${sG.x!.toBigInteger()?.toRadixString(16)}");
+        "Mapped generator G′ (X): ${mapped.x!.toBigInteger()?.toRadixString(16)}");
     _log.sdVerbose(
-        "Mapped generator G′ (Y): ${sG.y!.toBigInteger()?.toRadixString(16)}");
-
-    return sG;
+        "Mapped generator G′ (Y): ${mapped.y!.toBigInteger()?.toRadixString(16)}");
+    return mapped;
   }
 }
 

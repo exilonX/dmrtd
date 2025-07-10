@@ -497,20 +497,20 @@ class PACE {
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       if (keyLength == KEY_LENGTH.s128) {
         _log.debug("Cipher algorithm: AES, Key length: 128 bits");
-        return DeriveKey.aes128(seed);
+        return DeriveKey.aes128(seed, paceMode: false);
       } else if (keyLength == KEY_LENGTH.s192) {
         _log.debug("Cipher algorithm: AES, Key length: 192 bits");
-        return DeriveKey.aes192(seed);
+        return DeriveKey.aes192(seed, paceMode: false);
       } else if (keyLength == KEY_LENGTH.s256) {
         _log.debug("Cipher algorithm: AES, Key length: 256 bits");
-        return DeriveKey.aes256(seed);
+        return DeriveKey.aes256(seed, paceMode: false);
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      return DeriveKey.desEDE(seed);
+      return DeriveKey.desEDE(seed, paceMode: false);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
@@ -543,7 +543,7 @@ class PACE {
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      return DeriveKey.desEDE(seed);
+      return DeriveKey.desEDE(seed, paceMode: false);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
@@ -577,7 +577,7 @@ class PACE {
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      return DeriveKey.desEDE(seed);
+      return DeriveKey.desEDE(seed, paceMode: false);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
@@ -730,6 +730,17 @@ class PACE {
           "Pace domain parameter id(int): $paceDomainParameterId, "
           "Pace protocol: ${paceProtocol.toString()}");
 
+      // ================== START OF THE FIX ==================
+      // HERE IS THE OVERRIDE.
+      // We force the protocol object to believe it's Integrated Mapping,
+      // regardless of what the card's OID said.
+      if (paceProtocol.mappingType == MAPPING_TYPE.GM) {
+        _log.severe(
+            "!! OVERRIDE: Forcing Integrated Mapping (IM) instead of Generic Mapping (GM) !!");
+        paceProtocol.overrideMappingType(MAPPING_TYPE.IM);
+      }
+      // =================== END OF THE FIX ===================
+
       ECDHPace? domainParameter;
       PublicKeyPACEeCDH? publicICCenvelope;
       PublicKeyPACEeCDH? ephemeralPublicICCenvelope;
@@ -787,8 +798,11 @@ class PACE {
         _log.debug("Starting PACE step 3 ...");
         ECPublicKey publicICCkey =
             domainParameter.transformPublic(pubKey: publicICCenvelope);
-        ECPoint generatorPoint =
-            domainParameter.getMappedGenerator(nonce: nonce);
+
+        ECPoint generatorPoint = domainParameter.getMappedGenerator(
+            otherPubKey: publicICCkey,
+            nonce: nonce,
+            mappingType: paceProtocol.mappingType);
 
         _log.warning(
             "[PACE Step3] Mapped generator X: ${generatorPoint.x.toString()}");

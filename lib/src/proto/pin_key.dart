@@ -33,13 +33,13 @@ class PinKey extends AccessKey {
   Uint8List Kpi(CipherAlgorithm cipherAlgorithm, KEY_LENGTH keyLength) {
     switch ((cipherAlgorithm, keyLength)) {
       case (CipherAlgorithm.AES, KEY_LENGTH.s128):
-        return DeriveKey.aes128(_pinBytes);
+        return DeriveKey.aes128(_pinBytes, paceMode: true);
       case (CipherAlgorithm.AES, KEY_LENGTH.s192):
-        return DeriveKey.aes192(_pinBytes);
+        return DeriveKey.aes192(_pinBytes, paceMode: true);
       case (CipherAlgorithm.AES, KEY_LENGTH.s256):
-        return DeriveKey.aes256(_pinBytes);
+        return DeriveKey.aes256(_pinBytes, paceMode: true);
       case (CipherAlgorithm.DESede, _):
-        return DeriveKey.desEDE(_pinBytes);
+        return DeriveKey.desEDE(_pinBytes, paceMode: true);
       default:
         throw ArgumentError("Unsupported cipher/keyLength combo");
     }
