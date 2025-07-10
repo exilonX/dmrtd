@@ -30,6 +30,8 @@ class ECDHBasicAgreementPACEError implements Exception {
 }
 
 class ECDHBasicAgreementPACE extends ECDHBasicAgreement {
+  static final _log = Logger("ECDHBasicAgreementPACE");
+
   ECPoint calculateAgreementAndReturnPoint(ECPublicKey pubKey) {
     var params = key.parameters;
     if (pubKey.parameters?.curve != params?.curve) {
@@ -39,12 +41,28 @@ class ECDHBasicAgreementPACE extends ECDHBasicAgreement {
 
     var d = key.d!;
 
+    // --- START NEW LOGGING ---
+    _log.severe("== Investigating cleanPoint ==");
+    _log.severe(
+        "Q BEFORE cleanPoint (X): ${pubKey.Q!.x!.toBigInteger()!.toRadixString(16)}");
+    _log.severe(
+        "Q BEFORE cleanPoint (Y): ${pubKey.Q!.y!.toBigInteger()!.toRadixString(16)}");
+    // --- END NEW LOGGING ---
+
     // Always perform calculations on the exact curve specified by our private key's parameters
     var Q = cleanPoint(params!.curve, pubKey.Q!);
     if (Q == null || Q.isInfinity) {
       throw ECDHBasicAgreementPACEError(
           'Infinity is not a valid public key for ECDH');
     }
+
+    // --- START NEW LOGGING ---
+    _log.severe(
+        "Q AFTER cleanPoint (X): ${Q.x!.toBigInteger()!.toRadixString(16)}");
+    _log.severe(
+        "Q AFTER cleanPoint (Y): ${Q.y!.toBigInteger()!.toRadixString(16)}");
+    _log.severe("============================");
+    // --- END NEW LOGGING ---
 
     var h = (params as ECDomainParametersImpl).h!;
 
@@ -350,6 +368,21 @@ class ECDHPace {
     // ==> END LOGGING BLOCK <==
 
     return sharedPoint;
+  }
+
+  Uint8List getVanillaSharedSecret(
+      {required ECPublicKey otherEphemeralPubKey}) {
+    _log.fine(
+        "Calculating VANILLA ephemeral shared secret with domain parameter ${selectedDomainParameter.name}.");
+    if (_privEphemeral == null) {
+      throw ECDHPaceError(
+          "Ephemeral private key is null. Generate key pair first.");
+    }
+    // Use the standard, unmodified agreement from pointycastle
+    final agreement = ECDHBasicAgreement()..init(_privEphemeral!);
+    final sharedSecretBigInt =
+        agreement.calculateAgreement(otherEphemeralPubKey);
+    return Utils.bigIntToUint8List(bigInt: sharedSecretBigInt);
   }
 
   // ECPoint getMappedGenerator(

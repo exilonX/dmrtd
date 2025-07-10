@@ -848,6 +848,8 @@ class PACE {
             domainParameter.getEphemeralSharedSecret(
                 otherEphemeralPubKey: ephemeralPublicICCkey);
 
+        // ECPoint ephemeralSharedSecretKey = domainParameter.getVanillaSharedSecret(otherEphemeralPubKey: ephemeralPublicICCkey)
+
         _log.sdVerbose("Ephemeral shared secret (X, Y): "
             "${ECDHPace.ecPointToList(point: ephemeralSharedSecretKey, fieldSize: domainParameter.selectedDomainParameter.size).toBytes().hex()}");
 
