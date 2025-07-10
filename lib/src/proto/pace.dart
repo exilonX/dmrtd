@@ -757,17 +757,6 @@ class PACE {
           "Pace domain parameter id(int): $paceDomainParameterId, "
           "Pace protocol: ${paceProtocol.toString()}");
 
-      // ================== START OF THE FIX ==================
-      // HERE IS THE OVERRIDE.
-      // We force the protocol object to believe it's Integrated Mapping,
-      // regardless of what the card's OID said.
-      if (paceProtocol.mappingType == MAPPING_TYPE.GM) {
-        _log.severe(
-            "!! OVERRIDE: Forcing Integrated Mapping (IM) instead of Generic Mapping (GM) !!");
-        paceProtocol.overrideMappingType(MAPPING_TYPE.IM);
-      }
-      // =================== END OF THE FIX ===================
-
       ECDHPace? domainParameter;
       PublicKeyPACEeCDH? publicICCenvelope;
       PublicKeyPACEeCDH? ephemeralPublicICCenvelope;
