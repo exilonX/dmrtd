@@ -433,11 +433,11 @@ class ECDHPace {
   // }
 
   ECPoint getMappedGenerator({
-    required ECPublicKey otherPubKey,
+    // required ECPublicKey otherPubKey,
     required Uint8List nonce,
   }) {
     // 1) H = d * Q
-    final ECPoint H = getSharedSecret(otherPubKey: otherPubKey);
+    // final ECPoint H = getSharedSecret(otherPubKey: otherPubKey);
 
     // 2) s = nonce mod n
     final BigInt n = domainParameters.n;
@@ -456,18 +456,18 @@ class ECDHPace {
       throw ECDHPaceError("Invalid s·G in GM mapping (point at infinity).");
     }
 
-    // 5) mapped generator G′ = s·G + H   (addition returns ECPoint?)
-    final ECPoint mapped = (sG + H)!; // <— note the !
-    if (mapped.isInfinity) {
-      throw ECDHPaceError("GM mapping yielded invalid point (at infinity).");
-    }
+    // // // 5) mapped generator G′ = s·G + H   (addition returns ECPoint?)
+    // // final ECPoint mapped = (sG + H)!; // <— note the !
+    // // if (mapped.isInfinity) {
+    // //   throw ECDHPaceError("GM mapping yielded invalid point (at infinity).");
+    // // }
 
     _log.sdVerbose(
-        "Mapped generator G′ (X): ${mapped.x!.toBigInteger()?.toRadixString(16)}");
+        "Mapped generator G′ (X): ${sG.x!.toBigInteger()?.toRadixString(16)}");
     _log.sdVerbose(
-        "Mapped generator G′ (Y): ${mapped.y!.toBigInteger()?.toRadixString(16)}");
+        "Mapped generator G′ (Y): ${sG.y!.toBigInteger()?.toRadixString(16)}");
 
-    return mapped;
+    return sG;
   }
 }
 

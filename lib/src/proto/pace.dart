@@ -681,36 +681,36 @@ class PACE {
         throw PACEError("PACE.decryptNonce; Cipher algorithm is not supported");
       }
 
-      try {
-        _log.debug("Validating decrypted nonce is a point on the curve...");
-        final domainParameter = DomainParameterSelectorECDH.getDomainParameter(
-            id: paceDomainParameterId);
-        final curveParams = domainParameter.domainParameters;
-        final fieldSizeInBytes = (curveParams.curve.fieldSize / 8).ceil();
+      // try {
+      //   _log.debug("Validating decrypted nonce is a point on the curve...");
+      //   final domainParameter = DomainParameterSelectorECDH.getDomainParameter(
+      //       id: paceDomainParameterId);
+      //   final curveParams = domainParameter.domainParameters;
+      //   final fieldSizeInBytes = (curveParams.curve.fieldSize / 8).ceil();
 
-        if (decryptedNonce.length != 2 * fieldSizeInBytes) {
-          throw PACEError(
-              "Decrypted nonce has incorrect length (${decryptedNonce.length} bytes) "
-              "for the selected curve (expected ${2 * fieldSizeInBytes} bytes). Incorrect CAN?");
-        }
+      //   if (decryptedNonce.length != 2 * fieldSizeInBytes) {
+      //     throw PACEError(
+      //         "Decrypted nonce has incorrect length (${decryptedNonce.length} bytes) "
+      //         "for the selected curve (expected ${2 * fieldSizeInBytes} bytes). Incorrect CAN?");
+      //   }
 
-        // Use the correct Utils function
-        final x = Utils.uint8ListToBigInt(
-            decryptedNonce.sublist(0, fieldSizeInBytes));
-        final y =
-            Utils.uint8ListToBigInt(decryptedNonce.sublist(fieldSizeInBytes));
+      //   // Use the correct Utils function
+      //   final x = Utils.uint8ListToBigInt(
+      //       decryptedNonce.sublist(0, fieldSizeInBytes));
+      //   final y =
+      //       Utils.uint8ListToBigInt(decryptedNonce.sublist(fieldSizeInBytes));
 
-        // Use the correct pointycastle validation method: try to create the point.
-        // The createPoint method will throw an exception if (x,y) is not on the curve.
-        curveParams.curve.createPoint(x, y);
+      //   // Use the correct pointycastle validation method: try to create the point.
+      //   // The createPoint method will throw an exception if (x,y) is not on the curve.
+      //   curveParams.curve.createPoint(x, y);
 
-        _log.debug("Nonce validation successful.");
-      } catch (e) {
-        _log.error(
-            "Decrypted nonce is NOT a valid point on the curve. The CAN is almost certainly incorrect. Validation failed with error: $e");
-        throw PACEError(
-            "PACE.decryptNonce; Nonce validation failed. Incorrect CAN.");
-      }
+      //   _log.debug("Nonce validation successful.");
+      // } catch (e) {
+      //   _log.error(
+      //       "Decrypted nonce is NOT a valid point on the curve. The CAN is almost certainly incorrect. Validation failed with error: $e");
+      //   throw PACEError(
+      //       "PACE.decryptNonce; Nonce validation failed. Incorrect CAN.");
+      // }
       return decryptedNonce;
     } on Exception catch (e) {
       _log.error("PACE.decryptNonce; Failed: $e");
@@ -787,8 +787,8 @@ class PACE {
         _log.debug("Starting PACE step 3 ...");
         ECPublicKey publicICCkey =
             domainParameter.transformPublic(pubKey: publicICCenvelope);
-        ECPoint generatorPoint = domainParameter.getMappedGenerator(
-            otherPubKey: publicICCkey, nonce: nonce);
+        ECPoint generatorPoint =
+            domainParameter.getMappedGenerator(nonce: nonce);
 
         _log.warning(
             "[PACE Step3] Mapped generator X: ${generatorPoint.x.toString()}");
