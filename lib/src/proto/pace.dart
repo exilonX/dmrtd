@@ -658,7 +658,6 @@ class PACE {
           decryptedNonce = aesCipher128.decrypt(data: nonce, key: k_pi);
           _log.sdVerbose(
               "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
-          return decryptedNonce;
         } else if (keyLength == KEY_LENGTH.s256) {
           _log.debug("PACE.decryptNonce; Cipher algorithm: AES 256");
           AESCipher aesCipher256 =
@@ -666,7 +665,6 @@ class PACE {
           decryptedNonce = aesCipher256.decrypt(data: nonce, key: k_pi);
           _log.sdVerbose(
               "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
-          return decryptedNonce;
         } else {
           _log.error("PACE.decryptNonce; Key length is not supported");
           throw PACEError("PACE.decryptNonce; Key length is not supported");
