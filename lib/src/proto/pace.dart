@@ -633,7 +633,8 @@ class PACE {
   static Uint8List decryptNonce(
       {required OIEPaceProtocol paceProtocol,
       required Uint8List nonce,
-      required AccessKey accessKey}) {
+      required AccessKey accessKey,
+      required int paceDomainParameterId}) {
     try {
       _log.debug("PACE.decryptNonce; Decrypting nonce ...");
       _log.sdVerbose("PACE.decryptNonce; Nonce: ${nonce.hex()}, "
@@ -647,13 +648,14 @@ class PACE {
       //Uint8List k_pi = cacluate_K_PI_Key(paceProtocol: paceProtocol, seed: key);
       _log.sdVerbose("PACE.decryptNonce; K-pi: ${k_pi.hex()}");
 
+      Uint8List decryptedNonce;
+
       if (cipherAlgo == CipherAlgorithm.AES) {
         if (keyLength == KEY_LENGTH.s128) {
           _log.debug("PACE.decryptNonce; Cipher algorithm: AES");
           AESCipher aesCipher128 =
               AESChiperSelector.getChiper(size: KEY_LENGTH.s128);
-          Uint8List decryptedNonce =
-              aesCipher128.decrypt(data: nonce, key: k_pi);
+          decryptedNonce = aesCipher128.decrypt(data: nonce, key: k_pi);
           _log.sdVerbose(
               "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
           return decryptedNonce;
@@ -661,8 +663,7 @@ class PACE {
           _log.debug("PACE.decryptNonce; Cipher algorithm: AES 256");
           AESCipher aesCipher256 =
               AESChiperSelector.getChiper(size: KEY_LENGTH.s256);
-          Uint8List decryptedNonce =
-              aesCipher256.decrypt(data: nonce, key: k_pi);
+          decryptedNonce = aesCipher256.decrypt(data: nonce, key: k_pi);
           _log.sdVerbose(
               "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
           return decryptedNonce;
@@ -673,15 +674,46 @@ class PACE {
       } else if (cipherAlgo == CipherAlgorithm.DESede) {
         _log.debug("PACE.decryptNonce; Cipher algorithm: DESede");
         /*key iv data*/
-        Uint8List decryptedNonce =
+        decryptedNonce =
             DESedeDecrypt(edata: nonce, key: k_pi, iv: Uint8List(8));
         _log.sdVerbose(
             "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
-        return decryptedNonce;
       } else {
         _log.error("PACE.decryptNonce; Cipher algorithm is not supported");
         throw PACEError("PACE.decryptNonce; Cipher algorithm is not supported");
       }
+
+      try {
+        _log.debug("Validating decrypted nonce is a point on the curve...");
+        final domainParameter = DomainParameterSelectorECDH.getDomainParameter(
+            id: paceDomainParameterId);
+        final curveParams = domainParameter.domainParameters;
+        final fieldSizeInBytes = (curveParams.curve.fieldSize / 8).ceil();
+
+        if (decryptedNonce.length != 2 * fieldSizeInBytes) {
+          throw PACEError(
+              "Decrypted nonce has incorrect length (${decryptedNonce.length} bytes) "
+              "for the selected curve (expected ${2 * fieldSizeInBytes} bytes). Incorrect CAN?");
+        }
+
+        // Use the correct Utils function
+        final x = Utils.uint8ListToBigInt(
+            decryptedNonce.sublist(0, fieldSizeInBytes));
+        final y =
+            Utils.uint8ListToBigInt(decryptedNonce.sublist(fieldSizeInBytes));
+
+        // Use the correct pointycastle validation method: try to create the point.
+        // The createPoint method will throw an exception if (x,y) is not on the curve.
+        curveParams.curve.createPoint(x, y);
+
+        _log.debug("Nonce validation successful.");
+      } catch (e) {
+        _log.error(
+            "Decrypted nonce is NOT a valid point on the curve. The CAN is almost certainly incorrect. Validation failed with error: $e");
+        throw PACEError(
+            "PACE.decryptNonce; Nonce validation failed. Incorrect CAN.");
+      }
+      return decryptedNonce;
     } on Exception catch (e) {
       _log.error("PACE.decryptNonce; Failed: $e");
       throw PACEError("PACE.decryptNonce; Failed: $e");
@@ -1244,7 +1276,8 @@ class PACE {
         decryptedNonce = PACE.decryptNonce(
             paceProtocol: paceProtocol,
             nonce: apduStep1Pace.nonce,
-            accessKey: accessKey);
+            accessKey: accessKey,
+            paceDomainParameterId: paceDomainParameterId);
         _log.debug("PACE step 1 response from ICC is valid");
       } on Exception catch (e) {
         _log.error("PACE(1); Failed: $e");
