@@ -432,11 +432,6 @@ class Passport {
     // 1. Select the eMRTD DF1 applet
     await _selectDF1();
 
-    // Step 2: Select the Master File. This is a common prerequisite to set
-    // the card's security context before authentication.
-    await _selectMF();
-    _log.info('Master File selected.');
-
     // Step 2: Select a specific Elementary File (EF) to set the card's security context.
     // This is the crucial missing step. We'll select EF.DG1, which is always present.
     // The FID for DG1 is 0x0101.
