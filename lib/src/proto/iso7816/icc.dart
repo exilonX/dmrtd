@@ -534,7 +534,7 @@ class ICC {
 
   // Replace the existing verifyPin method in lib/src/proto/iso7816/icc.dart
 
-  Future<void> verifyPin(String pin, {int pinRef = 0x03}) async {
+  Future<void> verifyPinRaw(String pin, {int pinRef = 0x03}) async {
     if (pin.isEmpty) throw ArgumentError('PIN cannot be empty');
     final bytes = utf8.encode(pin);
     if (bytes.length > 12) {
