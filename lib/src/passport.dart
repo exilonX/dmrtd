@@ -403,6 +403,25 @@ class Passport {
     }
   }
 
+  /// Selects the eMRTD application, establishes a BAC session,
+  /// then sends the VERIFY APDU in one shot.
+  Future<void> startSessionAndVerifyPin({
+    required DBAKey bacKeys,
+    required String pin,
+    int pinRef = 0x03,
+  }) async {
+    // 1. Select the eMRTD DF1 applet
+    await _selectDF1();
+
+    // 2. Kick off BAC (or PACE if you prefer)
+    await _exec(() => _api.initSessionViaBAC(bacKeys));
+
+    // 3. Verify the PIN via ICC
+    await _api.icc.verifyPin(pin, pinRef: pinRef);
+
+    _log.info('Session established and PIN verified');
+  }
+
   Future<T> _exec<T>(Function f) async {
     try {
       return await f();
