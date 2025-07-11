@@ -462,15 +462,15 @@ class Passport {
     // This is a more robust way to set the card's security context.
     // We wrap this in a try-catch because we don't care about the file's content,
     // only that the command was sent to the card.
-    _log.info('Attempting to read EF.DG1 by SFI to set security context...');
+    _log.info('Reading EF.COM to set card security context...');
     try {
-      await readEfDG1();
+      await readEfCOM();
     } catch (e) {
+      // This should not fail as EF.COM is public, but we catch it just in case.
       _log.warning(
-          'Ignoring error while pre-reading EF.DG1. The command was sent, which is what matters. Error: $e');
+          'Ignoring potential error while reading EF.COM. The command was sent. Error: $e');
     }
     _log.info('Security context set.');
-    // =======================================================
 
     // 3. Verify the PIN via ICC
     await _api.icc.verifyPinRaw(pin, pinRef: pinRef);
