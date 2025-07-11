@@ -487,7 +487,7 @@ class ICC {
   /// [pinRef]: The P2 parameter identifying the PIN. Defaults to 0x03 from the trace.
   /// Throws [PinVerificationFailedException] or [PinPermanentlyBlockedException] on failure.
   /// Throws [ICCError] for other unexpected card errors.
-  Future<void> verifyPin(String pin, {int pinRef = 0x03}) async {
+  Future<void> verifyPinSM(String pin, {int pinRef = 0x03}) async {
     if (pin.isEmpty) throw ArgumentError('PIN cannot be empty');
     final bytes = utf8.encode(pin);
     if (bytes.length > 12)
@@ -530,5 +530,63 @@ class ICC {
       // For any other error, re-throw the original, unhandled ICCError.
       rethrow;
     }
+  }
+
+  // Replace the existing verifyPin method in lib/src/proto/iso7816/icc.dart
+
+  Future<void> verifyPin(String pin, {int pinRef = 0x03}) async {
+    if (pin.isEmpty) throw ArgumentError('PIN cannot be empty');
+    final bytes = utf8.encode(pin);
+    if (bytes.length > 12) {
+      throw ArgumentError('PIN must be 12 characters or less');
+    }
+
+    final padded = Uint8List(12)..fillRange(0, 12, 0xFF);
+    padded.setRange(0, bytes.length, bytes);
+
+    final apdu = CommandAPDU(
+      cla: ISO7816_CLA.NO_SM, // This should be 0x00
+      ins: ISO7816_INS.VERIFY,
+      p1: 0x00,
+      p2: pinRef,
+      data: padded,
+    );
+
+    _log.debug("Sending VERIFY command without SM wrapping: $apdu");
+    final rawCmd = apdu.toBytes();
+
+    _log.debug(
+        "Sending ${rawCmd.length} byte(s) to ICC: data='${rawCmd.hex()}'");
+    final rawResp = await _com.transceive(rawCmd);
+    _log.debug("Received ${rawResp.length} byte(s) from ICC");
+
+    final rapdu = ResponseAPDU.fromBytes(rawResp);
+    _log.debug("Received response from ICC: ${rapdu.status}");
+
+    // Now we must handle the status word checks manually.
+    final status = rapdu.status;
+    if (status == StatusWord.success) {
+      // Success!
+      return;
+    }
+
+    // Handle specific PIN failure codes
+    if (status.sw1 == StatusWord.authenticationFailed.sw1) {
+      // 0x63
+      final retries = status.sw2 & 0x0F;
+      if (retries == 0) {
+        throw PinPermanentlyBlockedException();
+      } else {
+        throw PinVerificationFailedException(retries);
+      }
+    }
+
+    if (status.sw1 == 0x69 && status.sw2 == 0x83) {
+      // 0x6983: Auth method blocked
+      throw PinPermanentlyBlockedException();
+    }
+
+    // For any other failure, throw a generic ICCError.
+    throw ICCError('PIN verification failed', status, rapdu.data);
   }
 }
