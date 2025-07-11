@@ -406,17 +406,9 @@ class Passport {
   /// Selects the eMRTD application, establishes a BAC session,
   /// then sends the VERIFY APDU in one shot.
   Future<void> startSessionAndVerifyPin({
-    required DBAKey bacKeys,
     required String pin,
     int pinRef = 0x03,
   }) async {
-    // 1. Select the eMRTD DF1 applet
-    await _selectDF1();
-
-    // 2. Kick off BAC (or PACE if you prefer)
-    await _exec(() => _api.initSessionViaBAC(bacKeys));
-
-    // 3. Verify the PIN via ICC
     await _api.icc.verifyPinSM(pin, pinRef: pinRef);
 
     _log.info('Session established and PIN verified');
@@ -447,37 +439,6 @@ class Passport {
     _log.info('Session established and PIN verified');
   }
 
-  /// Selects the eMRTD application, establishes a BAC session,
-  /// then sends the VERIFY APDU in one shot.
-  Future<void> startSessionAndVerifyPinRaw2({
-    required DBAKey bacKeys,
-    required String pin,
-    int pinRef = 0x03,
-  }) async {
-    // 1. Select the eMRTD DF1 applet
-    await _selectDF1();
-
-    // ====================== THE FINAL FIX ======================
-    // Instead of trying to SELECT the file, we will ATTEMPT TO READ it by SFI.
-    // This is a more robust way to set the card's security context.
-    // We wrap this in a try-catch because we don't care about the file's content,
-    // only that the command was sent to the card.
-    _log.info('Reading EF.COM to set card security context...');
-    try {
-      await readEfCOM();
-    } catch (e) {
-      // This should not fail as EF.COM is public, but we catch it just in case.
-      _log.warning(
-          'Ignoring potential error while reading EF.COM. The command was sent. Error: $e');
-    }
-    _log.info('Security context set.');
-
-    // 3. Verify the PIN via ICC
-    await _api.icc.verifyPinRaw(pin, pinRef: pinRef);
-
-    _log.info('Session established and PIN verified');
-  }
-
   Future<T> _exec<T>(Function f) async {
     try {
       return await f();
@@ -492,4 +453,18 @@ class Passport {
       throw PassportError(e.message, code: e.code);
     }
   }
+}
+
+/// Thrown when a PIN verification fails but retries are still available.
+class PinVerificationFailedException implements Exception {
+  final int retriesLeft;
+  PinVerificationFailedException(this.retriesLeft);
+  @override
+  String toString() => 'PIN verification failed. Retries left: \$retriesLeft';
+}
+
+/// Thrown when a PIN has been entered incorrectly too many times and is now blocked.
+class PinPermanentlyBlockedException implements Exception {
+  @override
+  String toString() => 'PIN is permanently blocked.';
 }
