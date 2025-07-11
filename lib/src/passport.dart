@@ -437,6 +437,15 @@ class Passport {
     await _selectMF();
     _log.info('Master File selected.');
 
+    // Step 2: Select a specific Elementary File (EF) to set the card's security context.
+    // This is the crucial missing step. We'll select EF.DG1, which is always present.
+    // The FID for DG1 is 0x0101.
+    _log.info('Selecting EF.DG1 to set security context...');
+    final dg1FidBytes = Uint8List(2);
+    ByteData.view(dg1FidBytes.buffer).setUint16(0, EfDG1.FID);
+    await _api.icc.selectEF(efId: dg1FidBytes);
+    _log.info('EF.DG1 selected.');
+
     // 3. Verify the PIN via ICC
     await _api.icc.verifyPinRaw(pin, pinRef: pinRef);
 
