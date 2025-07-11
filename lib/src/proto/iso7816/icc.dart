@@ -565,43 +565,66 @@ class ICC {
     }
   }
 
-  /// Performs a direct PIN authentication and reads specified data files, bypassing BAC.
+  /// Performs a direct PIN authentication and reads specified data files by replicating a known-good trace.
+  /// This flow bypasses any high-level BAC/PACE logic and sends raw APDUs.
+  /// It is designed for the specific Romanian eID profile observed.
   ///
-  /// This flow was derived from a Wireshark trace of a working proprietary application.
-  /// It requires that the T=1 protocol has already been established via [initiateT1Protocol].
-  /// It does NOT use Secure Messaging.
-  ///
-  /// [pin]: The user's PIN code.
-  /// [filesToRead]: A list of file identifiers (e.g., [0x010B] for DG11) to be read after successful authentication.
-  ///
-  /// Returns a map where keys are the file identifiers (as integers) and values
-  /// are the raw file data as a Uint8List.
+  /// Throws [ICCError] for any card communication errors.
+  /// Throws [PinVerificationFailedException] or [PinPermanentlyBlockedException] on PIN failure.
   Future<Map<int, Uint8List>> directPinAuthAndRead(
       String pin, List<int> filesToRead) async {
     final Map<int, Uint8List> readResults = {};
 
-    // Use the low-level communication provider directly, as this flow does not use SM.
+    // Use the raw communication provider to ensure no other logic interferes.
     final com = _com;
 
-    // --- STEP 1: Select the main eID application ---
-    _log.info("Step 1/3: Selecting main eID application...");
-    final aid = Uint8List.fromList(
-        [0xA0, 0x00, 0x00, 0x03, 0x97, 0x43, 0x49, 0x44, 0x5F, 0x01, 0x00]);
-    var apdu = CommandAPDU(cla: 0x00, ins: 0xA4, p1: 0x04, p2: 0x00, data: aid);
+    // =======================================================================
+    // STEP 1: PROPRIETARY MSE:SET COMMAND (from Frame 525)
+    // This is the first command after protocol negotiation.
+    // =======================================================================
+    _log.info("Step 1/5: Sending proprietary MSE:SET command...");
+    var apdu = CommandAPDU(cla: 0x00, ins: 0xC1, p1: 0x01, p2: 0xFE, ne: 62);
     var rawResp = await com.transceive(apdu.toBytes());
     var rapdu = ResponseAPDU.fromBytes(rawResp);
+    if (rapdu.status.isError()) {
+      throw ICCError("Proprietary MSE:SET (0xC1) command failed", rapdu.status,
+          rapdu.data);
+    }
+    _log.info(
+        "Proprietary MSE:SET successful. Response data: ${rapdu.data?.hex()}");
+
+    // =======================================================================
+    // STEP 2: SELECT eID APPLICATION (from Frame 529)
+    // =======================================================================
+    _log.info("Step 2/5: Selecting main eID application...");
+    final aid = Uint8List.fromList(
+        [0xA0, 0x00, 0x00, 0x03, 0x97, 0x43, 0x49, 0x44, 0x5F, 0x01, 0x00]);
+    apdu = CommandAPDU(cla: 0x00, ins: 0xA4, p1: 0x04, p2: 0x00, data: aid);
+    rawResp = await com.transceive(apdu.toBytes());
+    rapdu = ResponseAPDU.fromBytes(rawResp);
     if (rapdu.status.isError()) {
       throw ICCError(
           "Failed to select eID application", rapdu.status, rapdu.data);
     }
-
-    // NOTE: The `GET DATA` command from the log appears to be optional or situational.
-    // The primary blocker for `SELECT APP` is the missing PPS. We will try without it first.
-    // If `VERIFY` fails with 6985, we will add the GET DATA command back in here.
     _log.info("eID Application selected successfully.");
 
-    // --- STEP 2: Verify the PIN ---
-    _log.info("Step 2/3: Verifying PIN...");
+    // =======================================================================
+    // STEP 3: PREREQUISITE 'GET DATA' COMMAND (from Frame 533)
+    // =======================================================================
+    _log.info("Step 3/5: Sending prerequisite GET DATA command...");
+    apdu = CommandAPDU(cla: 0x00, ins: 0xCA, p1: 0x7F, p2: 0x68, ne: 0);
+    rawResp = await com.transceive(apdu.toBytes());
+    rapdu = ResponseAPDU.fromBytes(rawResp);
+    if (rapdu.status.isError()) {
+      throw ICCError(
+          "Prerequisite GET DATA command failed", rapdu.status, rapdu.data);
+    }
+    _log.info("Prerequisite command successful.");
+
+    // =======================================================================
+    // STEP 4: VERIFY PIN (from Frame 2933)
+    // =======================================================================
+    _log.info("Step 4/5: Verifying PIN...");
     final paddedPin = Uint8List(12)..fillRange(0, 12, 0xFF);
     final pinBytes = utf8.encode(pin);
     paddedPin.setRange(0, pinBytes.length, pinBytes);
@@ -615,13 +638,18 @@ class ICC {
       if (retries == 0) throw PinPermanentlyBlockedException();
       throw PinVerificationFailedException(retries);
     }
+    if (rapdu.status.sw1 == 0x69 && rapdu.status.sw2 == 0x83) {
+      throw PinPermanentlyBlockedException();
+    }
     if (rapdu.status.isError()) {
       throw ICCError("PIN verification failed", rapdu.status, rapdu.data);
     }
     _log.info("PIN Verification successful!");
 
-    // --- STEP 3: Read all requested data files ---
-    _log.info("Step 3/3: Reading sensitive data files...");
+    // =======================================================================
+    // STEP 5: READ SENSITIVE DATA FILES
+    // =======================================================================
+    _log.info("Step 5/5: Reading sensitive data files...");
     for (final fileId in filesToRead) {
       final fileIdBytes = Uint8List(2)
         ..buffer.asByteData().setUint16(0, fileId, Endian.big);
@@ -659,7 +687,7 @@ class ICC {
         }
         if (rapdu.status.sw1 == 0x62 && rapdu.status.sw2 == 0x82) {
           break;
-        } // End of file
+        }
         if (rapdu.status.isError()) {
           throw ICCError("Failed to read file 0x${fileId.toRadixString(16)}",
               rapdu.status, rapdu.data);
