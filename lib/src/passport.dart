@@ -409,11 +409,6 @@ class Passport {
     required String pin,
     int pinRef = 0x03,
   }) async {
-    _log.info('Starting session and verifying PIN...');
-    await _api.icc.primeCardForPinVerification();
-
-    _log.info('After primeCardForPinVerification ...');
-
     await _api.icc.verifyPinSM(pin, pinRef: pinRef);
 
     _log.info('Session established and PIN verified');
@@ -426,22 +421,22 @@ class Passport {
     required String pin,
     int pinRef = 0x03,
   }) async {
-    // 1. Select the eMRTD DF1 applet
-    await _selectDF1();
-
-    // Step 2: Select a specific Elementary File (EF) to set the card's security context.
-    // This is the crucial missing step. We'll select EF.DG1, which is always present.
-    // The FID for DG1 is 0x0101.
-    _log.info('Selecting EF.DG1 to set security context...');
-    final dg1FidBytes = Uint8List(2);
-    ByteData.view(dg1FidBytes.buffer).setUint16(0, EfDG1.FID);
-    await _api.icc.selectEF(efId: dg1FidBytes, p2: 0x0C);
-    _log.info('EF.DG1 selected.');
+    final List<int> filesToRead = [
+      0x010B, // File ID for DG11 (Address)
+    ];
 
     // 3. Verify the PIN via ICC
-    await _api.icc.verifyPinRaw(pin, pinRef: pinRef);
+    final Map<int, Uint8List> fileData =
+        await _api.icc.directPinAuthAndRead(pin, filesToRead);
 
     _log.info('Session established and PIN verified');
+
+    // Now, you can access the data for each file from the returned map.
+    if (fileData.containsKey(0x010B)) {
+      print("Raw Address Data (DG11):");
+      print(fileData[0x010B]!.hex());
+      // Here you would add your code to parse the address TLV data.
+    }
   }
 
   Future<T> _exec<T>(Function f) async {
