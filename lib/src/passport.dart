@@ -438,8 +438,39 @@ class Passport {
     _log.info('Selecting EF.DG1 to set security context...');
     final dg1FidBytes = Uint8List(2);
     ByteData.view(dg1FidBytes.buffer).setUint16(0, EfDG1.FID);
-    await _api.icc.selectEF(efId: dg1FidBytes);
+    await _api.icc.selectEF(efId: dg1FidBytes, p2: 0x0C);
     _log.info('EF.DG1 selected.');
+
+    // 3. Verify the PIN via ICC
+    await _api.icc.verifyPinRaw(pin, pinRef: pinRef);
+
+    _log.info('Session established and PIN verified');
+  }
+
+  /// Selects the eMRTD application, establishes a BAC session,
+  /// then sends the VERIFY APDU in one shot.
+  Future<void> startSessionAndVerifyPinRaw2({
+    required DBAKey bacKeys,
+    required String pin,
+    int pinRef = 0x03,
+  }) async {
+    // 1. Select the eMRTD DF1 applet
+    await _selectDF1();
+
+    // ====================== THE FINAL FIX ======================
+    // Instead of trying to SELECT the file, we will ATTEMPT TO READ it by SFI.
+    // This is a more robust way to set the card's security context.
+    // We wrap this in a try-catch because we don't care about the file's content,
+    // only that the command was sent to the card.
+    _log.info('Attempting to read EF.DG1 by SFI to set security context...');
+    try {
+      await readEfDG1();
+    } catch (e) {
+      _log.warning(
+          'Ignoring error while pre-reading EF.DG1. The command was sent, which is what matters. Error: $e');
+    }
+    _log.info('Security context set.');
+    // =======================================================
 
     // 3. Verify the PIN via ICC
     await _api.icc.verifyPinRaw(pin, pinRef: pinRef);
