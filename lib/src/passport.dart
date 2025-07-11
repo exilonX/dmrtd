@@ -432,6 +432,11 @@ class Passport {
     // 1. Select the eMRTD DF1 applet
     await _selectDF1();
 
+    // Step 2: Select the Master File. This is a common prerequisite to set
+    // the card's security context before authentication.
+    await _selectMF();
+    _log.info('Master File selected.');
+
     // 3. Verify the PIN via ICC
     await _api.icc.verifyPinRaw(pin, pinRef: pinRef);
 
