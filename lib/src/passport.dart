@@ -421,6 +421,8 @@ class Passport {
     required String pin,
     int pinRef = 0x03,
   }) async {
+    await _api.icc.initiateT1Protocol();
+
     final List<int> filesToRead = [
       0x010B, // File ID for DG11 (Address)
     ];

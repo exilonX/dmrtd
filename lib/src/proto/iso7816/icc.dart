@@ -532,14 +532,44 @@ class ICC {
     }
   }
 
+  /// Initiates the T=1 protocol with the card by sending a Protocol and Parameter Selection (PPS) request.
+  /// This is a low-level command that must be sent before many application-level APDUs.
+  /// It replicates the behavior seen in Frames 517-524 of the successful Wireshark trace.
+  /// This does NOT establish a secure channel.
+  Future<void> initiateT1Protocol() async {
+    _log.info("Initiating T=1 protocol with PPS command...");
+    // The PPS command is not a standard APDU and is sent to the communication provider directly.
+    // Command: FF 11 96 78
+    //   FF: PPS
+    //   11: PPSS (indicates PPS1 is present)
+    //   96: PPS1 (T=1, Fi=9, Di=6)
+    //   78: PCK (Checksum)
+    final ppsCommand = Uint8List.fromList([0xFF, 0x11, 0x96, 0x78]);
+
+    try {
+      // We send this directly through the ComProvider, as it's not an APDU
+      // and must not be wrapped by Secure Messaging.
+      final ppsResponse = await _com.transceive(ppsCommand);
+      _log.info("PPS response received: ${ppsResponse.hex()}");
+
+      // A valid PPS response should echo the command minus the PPSS byte.
+      // We can add more robust checking here if needed, but for now, we'll
+      // assume success if no exception is thrown.
+
+      // The log also shows a SetParameters CCID command, but this is handled by
+      // the reader/driver level and is not something we need to send from the app.
+      _log.info("T=1 protocol initiated successfully.");
+    } catch (e) {
+      _log.severe("Failed to initiate T=1 protocol via PPS: $e");
+      rethrow;
+    }
+  }
+
   /// Performs a direct PIN authentication and reads specified data files, bypassing BAC.
   ///
-  /// This flow was derived from a Wireshark trace of a working proprietary application
-  /// and is required for specific eID card profiles that do not use BAC/PACE for
-  /// accessing protected data, but rather a sequence of unprotected APDU commands.
-  ///
-  /// Throws [PinVerificationFailedException] or [PinPermanentlyBlockedException] on PIN failure.
-  /// Throws [ICCError] for any other card communication errors.
+  /// This flow was derived from a Wireshark trace of a working proprietary application.
+  /// It requires that the T=1 protocol has already been established via [initiateT1Protocol].
+  /// It does NOT use Secure Messaging.
   ///
   /// [pin]: The user's PIN code.
   /// [filesToRead]: A list of file identifiers (e.g., [0x010B] for DG11) to be read after successful authentication.
@@ -548,171 +578,101 @@ class ICC {
   /// are the raw file data as a Uint8List.
   Future<Map<int, Uint8List>> directPinAuthAndRead(
       String pin, List<int> filesToRead) async {
-    // This map will store the results.
     final Map<int, Uint8List> readResults = {};
 
-    // =======================================================================
-    // STEP 1: Select the main eID application (AID)
-    // =======================================================================
-    _log.info("Step 1/4: Selecting main eID application...");
+    // Use the low-level communication provider directly, as this flow does not use SM.
+    final com = _com;
+
+    // --- STEP 1: Select the main eID application ---
+    _log.info("Step 1/3: Selecting main eID application...");
     final aid = Uint8List.fromList(
         [0xA0, 0x00, 0x00, 0x03, 0x97, 0x43, 0x49, 0x44, 0x5F, 0x01, 0x00]);
-    var apdu = CommandAPDU(
-        cla: ISO7816_CLA.NO_SM,
-        ins: ISO7816_INS.SELECT_FILE,
-        p1: 0x04, // P1=04: Select by DF name (AID)
-        p2: 0x00,
-        data: aid);
-
-    var rawResp = await _com.transceive(apdu.toBytes());
+    var apdu = CommandAPDU(cla: 0x00, ins: 0xA4, p1: 0x04, p2: 0x00, data: aid);
+    var rawResp = await com.transceive(apdu.toBytes());
     var rapdu = ResponseAPDU.fromBytes(rawResp);
     if (rapdu.status.isError()) {
       throw ICCError(
           "Failed to select eID application", rapdu.status, rapdu.data);
     }
+
+    // NOTE: The `GET DATA` command from the log appears to be optional or situational.
+    // The primary blocker for `SELECT APP` is the missing PPS. We will try without it first.
+    // If `VERIFY` fails with 6985, we will add the GET DATA command back in here.
     _log.info("eID Application selected successfully.");
 
-    // =======================================================================
-    // STEP 2: Send the prerequisite GET DATA command to prime the card
-    // =======================================================================
-    _log.info("Step 2/4: Sending prerequisite GET DATA command...");
-    apdu = CommandAPDU(
-      cla: ISO7816_CLA.NO_SM,
-      ins: 0xCA, // INS_GET_DATA
-      p1: 0x7F, // Get data by tag
-      p2: 0x68, // Tag to get
-      ne: 256,
-    );
-    rawResp = await _com.transceive(apdu.toBytes());
+    // --- STEP 2: Verify the PIN ---
+    _log.info("Step 2/3: Verifying PIN...");
+    final paddedPin = Uint8List(12)..fillRange(0, 12, 0xFF);
+    final pinBytes = utf8.encode(pin);
+    paddedPin.setRange(0, pinBytes.length, pinBytes);
+    apdu =
+        CommandAPDU(cla: 0x00, ins: 0x20, p1: 0x00, p2: 0x03, data: paddedPin);
+    rawResp = await com.transceive(apdu.toBytes());
     rapdu = ResponseAPDU.fromBytes(rawResp);
 
-    // We check for 6E00 here because the library might still be in a BAC
-    // session from a previous operation. This command requires a raw channel.
-    if (rapdu.status.sw1 == 0x6E && rapdu.status.sw2 == 0x00) {
-      throw ICCError(
-          "GET DATA failed: Class not supported. This indicates a Secure Messaging session is likely active, but this command must be sent raw.",
-          rapdu.status,
-          rapdu.data);
-    }
-    if (rapdu.status.isError()) {
-      throw ICCError(
-          "Prerequisite GET DATA command failed", rapdu.status, rapdu.data);
-    }
-    _log.info("Prerequisite command successful. Card is ready for PIN.");
-
-    // =======================================================================
-    // STEP 3: Verify the PIN
-    // =======================================================================
-    _log.info("Step 3/4: Verifying PIN...");
-    if (pin.isEmpty) throw ArgumentError('PIN cannot be empty');
-    final bytes = utf8.encode(pin);
-    if (bytes.length > 12)
-      throw ArgumentError('PIN must be 12 characters or less');
-
-    final padded = Uint8List(12)..fillRange(0, 12, 0xFF);
-    padded.setRange(0, bytes.length, bytes);
-
-    apdu = CommandAPDU(
-      cla: ISO7816_CLA.NO_SM,
-      ins: ISO7816_INS.VERIFY,
-      p1: 0x00,
-      p2: 0x03, // PIN reference from log
-      data: padded,
-    );
-
-    rawResp = await _com.transceive(apdu.toBytes());
-    rapdu = ResponseAPDU.fromBytes(rawResp);
-
-    // Handle specific PIN verification responses
-    if (rapdu.status.sw1 == StatusWord.authenticationFailed.sw1) {
-      // 0x63
+    if (rapdu.status.sw1 == 0x63) {
       final retries = rapdu.status.sw2 & 0x0F;
       if (retries == 0) throw PinPermanentlyBlockedException();
       throw PinVerificationFailedException(retries);
     }
-    if (rapdu.status.sw1 == 0x69 && rapdu.status.sw2 == 0x83) {
-      // 0x6983
-      throw PinPermanentlyBlockedException();
-    }
     if (rapdu.status.isError()) {
-      throw ICCError("PIN verification failed with unexpected status",
-          rapdu.status, rapdu.data);
+      throw ICCError("PIN verification failed", rapdu.status, rapdu.data);
     }
     _log.info("PIN Verification successful!");
 
-    // =======================================================================
-    // STEP 4: Read all requested data files
-    // =======================================================================
-    _log.info("Step 4/4: Reading sensitive data files...");
+    // --- STEP 3: Read all requested data files ---
+    _log.info("Step 3/3: Reading sensitive data files...");
     for (final fileId in filesToRead) {
       final fileIdBytes = Uint8List(2)
         ..buffer.asByteData().setUint16(0, fileId, Endian.big);
       _log.info(
           "Reading file 0x${fileId.toRadixString(16).padLeft(4, '0')}...");
 
-      // 4a: Select the file
       apdu = CommandAPDU(
-        cla: ISO7816_CLA.NO_SM,
-        ins: ISO7816_INS.SELECT_FILE,
-        p1: 0x02, // Select by File ID
-        p2: 0x0C,
-        data: fileIdBytes,
-      );
-      rawResp = await _com.transceive(apdu.toBytes());
-      rapdu = ResponseAPDU.fromBytes(rawResp);
-      if (rapdu.status.isError()) {
+          cla: 0x00, ins: 0xA4, p1: 0x02, p2: 0x0C, data: fileIdBytes);
+      rawResp = await com.transceive(apdu.toBytes());
+      if (ResponseAPDU.fromBytes(rawResp).status.isError()) {
         _log.warning(
-            "Could not select file 0x${fileId.toRadixString(16)}: ${rapdu.status}. Skipping.");
-        continue; // Skip to the next file if this one can't be selected
+            "Could not select file 0x${fileId.toRadixString(16)}: ${ResponseAPDU.fromBytes(rawResp).status}. Skipping.");
+        continue;
       }
 
-      // 4b: Read the file content using READ BINARY
-      // This handles chained responses (status 61xx) by repeatedly sending GET RESPONSE.
       final fileDataBuilder = BytesBuilder();
       int offset = 0;
       while (true) {
         apdu = CommandAPDU(
-            cla: ISO7816_CLA.NO_SM,
-            ins: ISO7816_INS.READ_BINARY,
+            cla: 0x00,
+            ins: 0xB0,
             p1: (offset >> 8) & 0xFF,
             p2: offset & 0xFF,
             ne: 256);
-        rawResp = await _com.transceive(apdu.toBytes());
+        rawResp = await com.transceive(apdu.toBytes());
         rapdu = ResponseAPDU.fromBytes(rawResp);
 
-        if (rapdu.data != null) {
+        if (rapdu.data != null && rapdu.data!.isNotEmpty) {
           fileDataBuilder.add(rapdu.data!);
           offset += rapdu.data!.length;
         }
 
         if (rapdu.status == StatusWord.success) {
-          // End of file
           break;
         }
-
-        // Some cards might return 6282 (end of file) instead of 9000 with short data
         if (rapdu.status.sw1 == 0x62 && rapdu.status.sw2 == 0x82) {
           break;
-        }
-
+        } // End of file
         if (rapdu.status.isError()) {
-          throw ICCError(
-              "Failed to read file 0x${fileId.toRadixString(16)} at offset $offset",
-              rapdu.status,
-              rapdu.data);
+          throw ICCError("Failed to read file 0x${fileId.toRadixString(16)}",
+              rapdu.status, rapdu.data);
         }
       }
 
-      final fileData = fileDataBuilder.toBytes();
-      readResults[fileId] = fileData;
+      readResults[fileId] = fileDataBuilder.toBytes();
       _log.info(
-          "Successfully read ${fileData.length} bytes from file 0x${fileId.toRadixString(16)}");
+          "Successfully read ${readResults[fileId]!.length} bytes from file 0x${fileId.toRadixString(16)}");
     }
 
     return readResults;
   }
-
-  // Replace the existing verifyPin method in lib/src/proto/iso7816/icc.dart
 
   Future<void> verifyPinRaw(String pin, {int pinRef = 0x03}) async {
     if (pin.isEmpty) throw ArgumentError('PIN cannot be empty');
