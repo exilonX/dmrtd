@@ -1,9 +1,11 @@
 // Created by Crt Vavros, copyright © 2022 ZeroPass. All rights reserved.
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/src/com/com_provider.dart';
 import 'package:dmrtd/src/lds/tlv.dart';
+import 'package:dmrtd/src/proto/pin_verifier.dart';
 import 'package:dmrtd/src/utils.dart';
 import 'package:logging/logging.dart';
 
@@ -437,5 +439,96 @@ class ICC {
       return sm!.unprotect(resp);
     }
     return resp;
+  }
+
+  /// Sends a full CommandAPDU and returns the ResponseAPDU.
+  ///
+  /// This is the primary method for sending commands to the card, as it
+  /// automatically handles Secure Messaging (wrapping/unwrapping) if a
+  /// session is active. It also provides a central point for status word error handling.
+  ///
+  /// Throws [ICCError] if the card returns any non-success status word.
+  Future<ResponseAPDU> transceiveApdu(CommandAPDU apdu) async {
+    // This logic is based on the private _transceive, but is made public
+    // and self-contained for generic use.
+    _log.debug("Transceiving to ICC: $apdu");
+
+    // 1. Protect the APDU with Secure Messaging, if active.
+    final cmdToSend = sm?.protect(apdu) ?? apdu;
+    final rawCmd = cmdToSend.toBytes();
+
+    _log.debug(
+        "Sending ${rawCmd.length} byte(s) to ICC: data='${rawCmd.hex()}'");
+    final rawResp = await _com.transceive(rawCmd);
+    _log.debug("Received ${rawResp.length} byte(s) from ICC");
+
+    // 2. Unprotect the response, if Secure Messaging is active.
+    final rapdu = sm != null
+        ? sm!.unprotect(ResponseAPDU.fromBytes(rawResp))
+        : ResponseAPDU.fromBytes(rawResp);
+
+    _log.debug(
+        "Received response from ICC: ${rapdu.status} data_len=${rapdu.data?.length ?? 0}");
+    _log.sdDebug(" data=${rapdu.data?.hex()}");
+
+    // 3. Centralized error check.
+    if (rapdu.status.isError()) {
+      throw ICCError("APDU command failed", rapdu.status, rapdu.data);
+    }
+    return rapdu;
+  }
+
+  /// Verifies a user-provided PIN against the card.
+  ///
+  /// Constructs and sends a VERIFY APDU command and interprets the specific
+  /// status word responses related to PIN authentication.
+  ///
+  /// [pin]: The PIN string. Must be 1-12 characters.
+  /// [pinRef]: The P2 parameter identifying the PIN. Defaults to 0x03 from the trace.
+  /// Throws [PinVerificationFailedException] or [PinPermanentlyBlockedException] on failure.
+  /// Throws [ICCError] for other unexpected card errors.
+  Future<void> verifyPin(String pin, {int pinRef = 0x03}) async {
+    if (pin.isEmpty) throw ArgumentError('PIN cannot be empty');
+    final bytes = utf8.encode(pin);
+    if (bytes.length > 12)
+      throw ArgumentError('PIN must be 12 characters or less');
+
+    final padded = Uint8List(12)..fillRange(0, 12, 0xFF);
+    padded.setRange(0, bytes.length, bytes);
+
+    final apdu = CommandAPDU(
+      cla: ISO7816_CLA.NO_SM,
+      ins: ISO7816_INS.VERIFY,
+      p1: 0x00,
+      p2: pinRef,
+      data: padded,
+    );
+
+    try {
+      // Use the new generic method. It will throw an ICCError on any non-9000 status.
+      await transceiveApdu(apdu);
+      // If we get here, the status was 9000 (success), so we just return.
+    } on ICCError catch (e) {
+      // The command failed. Now we interpret the specific error code.
+      final status = e.sw;
+
+      if (status.sw1 == StatusWord.authenticationFailed.sw1) {
+        // 0x63
+        final retries = status.sw2 & 0x0F;
+        if (retries == 0) {
+          throw PinPermanentlyBlockedException();
+        } else {
+          throw PinVerificationFailedException(retries);
+        }
+      }
+
+      if (status.sw1 == 0x69 && status.sw2 == 0x83) {
+        // 0x6983: Auth method blocked
+        throw PinPermanentlyBlockedException();
+      }
+
+      // For any other error, re-throw the original, unhandled ICCError.
+      rethrow;
+    }
   }
 }
