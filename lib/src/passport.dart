@@ -409,6 +409,11 @@ class Passport {
     required String pin,
     int pinRef = 0x03,
   }) async {
+    _log.info('Starting session and verifying PIN...');
+    await _api.icc.primeCardForPinVerification();
+
+    _log.info('After primeCardForPinVerification ...');
+
     await _api.icc.verifyPinSM(pin, pinRef: pinRef);
 
     _log.info('Session established and PIN verified');

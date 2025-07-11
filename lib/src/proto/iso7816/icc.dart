@@ -532,6 +532,25 @@ class ICC {
     }
   }
 
+  Future<void> primeCardForPinVerification() async {
+    _log.debug(
+        "Priming card for PIN verification by issuing GET DATA for tag 7F68");
+
+    final apdu = CommandAPDU(
+      cla: ISO7816_CLA.NO_SM,
+      ins: 0xCA,
+      p1: 0x7F,
+      p2: 0x68,
+      ne: 256, // Expecting full data object
+    );
+
+    // We are sending this over the secure channel established by BAC.
+    // We don't need to process the response data, just ensure the command succeeds.
+    // transceiveApdu will throw an exception if the status is not 9000.
+    await transceiveApdu(apdu);
+    _log.debug("Card primed successfully.");
+  }
+
   // Replace the existing verifyPin method in lib/src/proto/iso7816/icc.dart
 
   Future<void> verifyPinRaw(String pin, {int pinRef = 0x03}) async {
