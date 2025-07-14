@@ -390,8 +390,8 @@ class PACE {
     final iccKey = iccEphemeralPublic.toBytes();
 
     final builder = BytesBuilder();
-    builder.add(ourKey);
     builder.add(iccKey);
+    builder.add(ourKey);
 
     final result = builder.toBytes();
     _log.sdVerbose("Simple Auth Data: ${result.hex()}");
