@@ -369,8 +369,8 @@ class PACE {
       TLV inputData = TLV(
           INPUT_DATA_T_TAG,
           Uint8List.fromList(objectIdentifierData.toBytes() +
-              publicKeyData.toBytes() +
-              iccPublicKeyData.toBytes()));
+              iccPublicKeyData.toBytes() +
+              publicKeyData.toBytes()));
 
       _log.sdDebug("ENCODING INPUT data: ${inputData.toBytes().hex()}");
       return inputData.toBytes();
