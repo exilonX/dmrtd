@@ -460,6 +460,9 @@ class ECDHPace {
     if (sG.isInfinity) {
       throw ECDHPaceError("Invalid s·G in GM mapping (point at infinity).");
     }
+    _log.severe("== POINT ADDITION VERIFICATION ==");
+    _log.severe("Point sG (X): ${sG.x!.toBigInteger()!.toRadixString(16)}");
+    _log.severe("Point sG (Y): ${sG.y!.toBigInteger()!.toRadixString(16)}");
 
     // 3) Calculate the final mapped generator based on the required mapping type
     ECPoint mapped;
@@ -470,7 +473,12 @@ class ECDHPace {
             "Generic Mapping requires the card's public key, but it was null.");
       }
       _log.fine("Performing Generic Mapping (G' = sG + H).");
+
       final ECPoint H = getSharedSecret(otherPubKey: otherPubKey);
+
+      _log.severe("Point H (X): ${H.x!.toBigInteger()!.toRadixString(16)}");
+      _log.severe("Point H (Y): ${H.y!.toBigInteger()!.toRadixString(16)}");
+
       mapped = (sG + H)!;
     } else if (mappingType == MAPPING_TYPE.IM) {
       // INTEGRATED MAPPING: G' = sG
@@ -484,6 +492,10 @@ class ECDHPace {
     if (mapped.isInfinity) {
       throw ECDHPaceError("GM mapping yielded invalid point (at infinity).");
     }
+
+    // ==> ADD THIS LOGGING BLOCK <==
+    _log.severe("================================");
+    // ==> END LOGGING BLOCK <==
 
     _log.sdVerbose(
         "Mapped generator G′ (X): ${mapped.x!.toBigInteger()?.toRadixString(16)}");
