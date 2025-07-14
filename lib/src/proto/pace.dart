@@ -381,6 +381,23 @@ class PACE {
     }
   }
 
+  static Uint8List generateSimpleAuthData({
+    required PublicKeyPACE ephemeralPublic,
+    required PublicKeyPACE iccEphemeralPublic,
+  }) {
+    _log.debug("Generating SIMPLE authentication data (raw concatenation)...");
+    final ourKey = ephemeralPublic.toBytes();
+    final iccKey = iccEphemeralPublic.toBytes();
+
+    final builder = BytesBuilder();
+    builder.add(ourKey);
+    builder.add(iccKey);
+
+    final result = builder.toBytes();
+    _log.sdVerbose("Simple Auth Data: ${result.hex()}");
+    return result;
+  }
+
   /// Generates data for AUTHENTICATION TEMPLATE FOR MUTUAL AUTHENTICATION
   static Uint8List generateAuthenticationTemplateForMutualAuthenticationData(
       {required final Uint8List cryptographicMechanism,
@@ -951,8 +968,11 @@ class PACE {
         _log.sdVerbose("ENC key: ${encKey.hex()} "
             "MAC key: ${macKey.hex()}");
 
-        Uint8List calcInputData = PACE.generateEncodingInputData(
-            crytpographicMechanism: paceProtocol,
+        // Uint8List calcInputData = PACE.generateEncodingInputData(
+        //     crytpographicMechanism: paceProtocol,
+        //     ephemeralPublic: domainParameter.getPubKeyEphemeral(),
+        //     iccEphemeralPublic: ephemeralPublicICCenvelope);
+        Uint8List calcInputData = PACE.generateSimpleAuthData(
             ephemeralPublic: domainParameter.getPubKeyEphemeral(),
             iccEphemeralPublic: ephemeralPublicICCenvelope);
 
