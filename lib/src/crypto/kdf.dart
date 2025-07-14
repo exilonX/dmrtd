@@ -36,22 +36,26 @@ enum DeriveKeyType {
 class DeriveKey {
   /// Returns key for ISO9797 MAC algorithm 3 derived from
   /// [keySeed] bytes and counter mode 2.
-  static Uint8List iso9797MacAlg3(final Uint8List keySeed) {
+  static Uint8List iso9797MacAlg3(final Uint8List keySeed,
+      {final bool paceMode = false}) {
     return derive(DeriveKeyType.ISO9797MacAlg3, keySeed);
   }
 
   /// Returns key for CMAC-128 derived from [keySeed] bytes and counter mode 2.
-  static Uint8List cmac128(final Uint8List keySeed) {
+  static Uint8List cmac128(final Uint8List keySeed,
+      {final bool paceMode = false}) {
     return derive(DeriveKeyType.CMAC128, keySeed);
   }
 
   /// Returns key for CMAC-192 derived from [keySeed] bytes and counter mode 2.
-  static Uint8List cmac192(final Uint8List keySeed) {
+  static Uint8List cmac192(final Uint8List keySeed,
+      {final bool paceMode = false}) {
     return derive(DeriveKeyType.CMAC192, keySeed);
   }
 
   /// Returns key for CMAC-256 derived from [keySeed] bytes and counter mode 2.
-  static Uint8List cmac256(final Uint8List keySeed) {
+  static Uint8List cmac256(final Uint8List keySeed,
+      {final bool paceMode = false}) {
     return derive(DeriveKeyType.CMAC256, keySeed);
   }
 
@@ -88,14 +92,27 @@ class DeriveKey {
   /// If [paceMode] is true counter 3 for encryption key types.
   static Uint8List derive(final DeriveKeyType keyType, final Uint8List keySeed,
       {final bool paceMode = false}) {
-    Int32 mode = Int32(paceMode ? 3 : 1); // PACE/ENC mode
-    if (keyType == DeriveKeyType.ISO9797MacAlg3 ||
-        keyType == DeriveKeyType.CMAC128 ||
-        keyType == DeriveKeyType.CMAC192 ||
-        keyType == DeriveKeyType.CMAC256) {
-      mode = Int32(2); // MAC mode
+    Int32 mode;
+
+    switch (keyType) {
+      case DeriveKeyType.DESede:
+      case DeriveKeyType.AES128:
+      case DeriveKeyType.AES192:
+      case DeriveKeyType.AES256:
+        // It's an Encryption Key
+        mode = Int32(paceMode ? 3 : 1); // Use counter 3 for PACE, 1 for BAC
+        break;
+
+      case DeriveKeyType.ISO9797MacAlg3:
+      case DeriveKeyType.CMAC128:
+      case DeriveKeyType.CMAC192:
+      case DeriveKeyType.CMAC256:
+        // It's a MAC Key
+        mode = Int32(paceMode ? 4 : 2); // Use counter 4 for PACE, 2 for BAC
+        break;
     }
 
+    // The rest of the function remains the same
     switch (keyType) {
       case DeriveKeyType.DESede:
       case DeriveKeyType.ISO9797MacAlg3:
@@ -105,13 +122,11 @@ class DeriveKey {
 
           // Adjust even parity bits
           for (int i = 0; i < key.length; i++) {
-            // count set bits
             var count = 0;
             for (int j = 0; j < 8; j++) {
               count += (key[i] >> j) & 0x01;
             }
             if (count % 2 == 0) {
-              // if even bit count
               key[i] ^= 0x01;
             }
           }

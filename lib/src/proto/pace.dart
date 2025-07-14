@@ -508,20 +508,20 @@ class PACE {
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       if (keyLength == KEY_LENGTH.s128) {
         _log.debug("Cipher algorithm: AES, Key length: 128 bits");
-        return DeriveKey.aes128(seed, paceMode: false);
+        return DeriveKey.aes128(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s192) {
         _log.debug("Cipher algorithm: AES, Key length: 192 bits");
-        return DeriveKey.aes192(seed, paceMode: false);
+        return DeriveKey.aes192(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s256) {
         _log.debug("Cipher algorithm: AES, Key length: 256 bits");
-        return DeriveKey.aes256(seed, paceMode: false);
+        return DeriveKey.aes256(seed, paceMode: true);
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      return DeriveKey.desEDE(seed, paceMode: false);
+      return DeriveKey.desEDE(seed, paceMode: true);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
@@ -541,20 +541,20 @@ class PACE {
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       if (keyLength == KEY_LENGTH.s128) {
         _log.debug("Cipher algorithm: AES, Key length: 128 bits");
-        return DeriveKey.cmac128(seed);
+        return DeriveKey.cmac128(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s192) {
         _log.debug("Cipher algorithm: AES, Key length: 192 bits");
-        return DeriveKey.cmac192(seed);
+        return DeriveKey.cmac192(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s256) {
         _log.debug("Cipher algorithm: AES, Key length: 256 bits");
-        return DeriveKey.cmac256(seed);
+        return DeriveKey.cmac256(seed, paceMode: true);
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      return DeriveKey.desEDE(seed, paceMode: false);
+      return DeriveKey.desEDE(seed, paceMode: true);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
