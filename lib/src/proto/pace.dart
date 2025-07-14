@@ -318,7 +318,8 @@ class PACE {
   /// If both are provided [ephemeralPublicPoint] exception is thrown.
   static Uint8List generateEncodingInputData(
       {required OIEPaceProtocol crytpographicMechanism,
-      required PublicKeyPACE ephemeralPublic}) {
+      required PublicKeyPACE ephemeralPublic,
+      required PublicKeyPACE ephemeralPublicICC}) {
     try {
       _log.debug("Generating ENCODING INPUT data ...");
       const INPUT_DATA_T_TAG = 0x7f49;
@@ -355,10 +356,21 @@ class PACE {
         throw PACEError(
             "PACE.generateEncodingInputData; Public key DH is null");
       }
+
+      // ICC's ephemeral public key
+      TLV iccPublicKeyData;
+      if (ephemeralPublicICC.agreementAlgorithm == TOKEN_AGREEMENT_ALGO.ECDH) {
+        iccPublicKeyData =
+            TLV(ELLIPTIC_CURVE_POINT, ephemeralPublicICC.toBytes());
+      } else {
+        iccPublicKeyData = TLV(DH_POINT, ephemeralPublicICC.toBytes());
+      }
+
       TLV inputData = TLV(
           INPUT_DATA_T_TAG,
-          Uint8List.fromList(
-              objectIdentifierData.toBytes() + publicKeyData.toBytes()));
+          Uint8List.fromList(objectIdentifierData.toBytes() +
+              publicKeyData.toBytes() +
+              iccPublicKeyData.toBytes()));
 
       _log.sdDebug("ENCODING INPUT data: ${inputData.toBytes().hex()}");
       return inputData.toBytes();
@@ -942,7 +954,26 @@ class PACE {
 
         Uint8List calcInputData = PACE.generateEncodingInputData(
             crytpographicMechanism: paceProtocol,
-            ephemeralPublic: domainParameter.getPubKeyEphemeral());
+            ephemeralPublic: domainParameter.getPubKeyEphemeral(),
+            ephemeralPublicICC: ephemeralPublicICCenvelope);
+
+        print("=== DETAILED T-BLOCK ANALYSIS ===");
+        print("Protocol object: ${paceProtocol.toString()}");
+        print("Protocol runtimeType: ${paceProtocol.runtimeType}");
+
+// Try these possible properties:
+        try {
+          print("Protocol identifier: ${paceProtocol.identifier}");
+        } catch (e) {
+          print("No identifier property");
+        }
+        print("=== PACE PROTOCOL INSPECTION ===");
+        print("PaceProtocol type: ${paceProtocol.runtimeType}");
+        print("PaceProtocol string: ${paceProtocol.toString()}");
+        print("Cipher algorithm: ${paceProtocol.cipherAlgoritm}");
+        print("Key length: ${paceProtocol.keyLength}");
+        print("Token agreement algo: ${paceProtocol.tokenAgreementAlgorithm}");
+        print("Mapping type: ${paceProtocol.mappingType}");
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -971,6 +1002,21 @@ class PACE {
         if (!inputToken.equals(pcMac)) {
           print('>> MISMATCH between FixedCMac and PointyCastle CMac!');
         }
+
+        print("=== T-BLOCK CONTENT CHECK ===");
+        print(
+            "Our ephemeral public key: ${domainParameter.getPubKeyEphemeral().toBytes().hex()}");
+        print(
+            "ICC's ephemeral public key: ${ephemeralPublicICCenvelope.toBytes().hex()}");
+        print("Complete T-block: ${calcInputData.hex()}");
+
+        // Check if both keys are in the T-block
+        String ourKeyHex = domainParameter.getPubKeyEphemeral().toBytes().hex();
+        String iccKeyHex = ephemeralPublicICCenvelope.toBytes().hex();
+        String tBlockHex = calcInputData.hex();
+
+        print("Our key in T-block? ${tBlockHex.contains(ourKeyHex)}");
+        print("ICC key in T-block? ${tBlockHex.contains(iccKeyHex)}");
 
         final apduBytes = <int>[
           0x00, // CLA
@@ -1005,7 +1051,8 @@ class PACE {
         Uint8List calcInputDataTerminalforCheck =
             PACE.generateEncodingInputData(
                 crytpographicMechanism: paceProtocol,
-                ephemeralPublic: domainParameter.getPubKeyEphemeral());
+                ephemeralPublic: domainParameter.getPubKeyEphemeral(),
+                ephemeralPublicICC: ephemeralPublicICCenvelope);
 
         Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -1169,7 +1216,8 @@ class PACE {
 
         Uint8List calcInputData = PACE.generateEncodingInputData(
             crytpographicMechanism: paceProtocol,
-            ephemeralPublic: ephemeralPublicICCenvelope);
+            ephemeralPublic: ephemeralPublicICCenvelope,
+            ephemeralPublicICC: ephemeralPublicICCenvelope);
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -1193,7 +1241,8 @@ class PACE {
         Uint8List calcInputDataTerminalforCheck =
             PACE.generateEncodingInputData(
                 crytpographicMechanism: paceProtocol,
-                ephemeralPublic: domainParameter.getPubKeyEphemeral());
+                ephemeralPublic: domainParameter.getPubKeyEphemeral(),
+                ephemeralPublicICC: ephemeralPublicICCenvelope);
 
         Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
