@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PACE Protocol Flow Diagram</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 2.5rem;
+      font-weight: 300;
+    }
+
+    .header p {
+      margin: 10px 0 0 0;
+      opacity: 0.9;
+      font-size: 1.1rem;
+    }
+
+    .content {
+      padding: 40px;
+    }
+
+    .step {
+      margin-bottom: 50px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+      border-left: 5px solid #3498db;
+      position: relative;
+    }
+
+    .step:nth-child(even) {
+      border-left-color: #e74c3c;
+    }
+
+    .step:nth-child(3n) {
+      border-left-color: #2ecc71;
+    }
+
+    .step:nth-child(4n) {
+      border-left-color: #f39c12;
+    }
+
+    .step:nth-child(5n) {
+      border-left-color: #9b59b6;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 25px;
+    }
+
+    .step-number {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin-right: 20px;
+      box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .step:nth-child(even) .step-number {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    .step:nth-child(3n) .step-number {
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+      box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+    }
+
+    .step:nth-child(4n) .step-number {
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+      box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+    }
+
+    .step:nth-child(5n) .step-number {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      box-shadow: 0 5px 15px rgba(155, 89, 182, 0.3);
+    }
+
+    .step-title {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 0;
+    }
+
+    .flow-diagram {
+      display: grid;
+      grid-template-columns: 1fr 120px 1fr;
+      gap: 20px;
+      align-items: center;
+      margin: 25px 0;
+    }
+
+    .entity {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 600;
+      color: #2c3e50;
+      border: 2px solid #ecf0f1;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .entity.pcd {
+      background: linear-gradient(135deg, #74b9ff, #0984e3);
+      color: white;
+      border-color: #0984e3;
+    }
+
+    .entity.picc {
+      background: linear-gradient(135deg, #fd79a8, #e84393);
+      color: white;
+      border-color: #e84393;
+    }
+
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: #3498db;
+      font-weight: bold;
+    }
+
+    .arrow.left {
+      color: #e74c3c;
+    }
+
+    .data-section {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 15px 0;
+      border: 1px solid #e9ecef;
+    }
+
+    .data-title {
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+
+    .data-content {
+      font-family: 'Courier New', monospace;
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #495057;
+      border-left: 3px solid #17a2b8;
+    }
+
+    .crypto-box {
+      background: linear-gradient(135deg, #ffecd2, #fcb69f);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      border: 1px solid #f39c12;
+    }
+
+    .crypto-title {
+      font-weight: 600;
+      color: #d35400;
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+
+    .formula {
+      font-family: 'Courier New', monospace;
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      color: #2c3e50;
+      margin: 5px 0;
+    }
+
+    .note {
+      background: #e8f4fd;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #17a2b8;
+      margin: 20px 0;
+      color: #0c5460;
+    }
+
+    .tags {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      background: #6c757d;
+      color: white;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .tag.send {
+      background: #28a745;
+    }
+
+    .tag.receive {
+      background: #dc3545;
+    }
+
+    .tag.compute {
+      background: #fd7e14;
+    }
+
+    .legend {
+      background: #f8f9fa;
+      padding: 25px;
+      border-radius: 10px;
+      margin-top: 40px;
+      border: 1px solid #dee2e6;
+    }
+
+    .legend h3 {
+      margin-top: 0;
+      color: #495057;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>PACE Protocol Flow</h1>
+      <p>Password Authenticated Connection Establishment (ICAO 9303)</p>
+    </div>
+
+    <div class="content">
+      <!-- Step 0: MSE Set AT -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">0</div>
+          <h2 class="step-title">MSE Set AT (Mutual Authentication Template)</h2>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD (Reader)</div>
+          <div class="arrow">→</div>
+          <div class="entity picc">PICC (Card)</div>
+        </div>
+
+        <div class="tags">
+          <span class="tag send">SEND</span>
+          <span class="tag">SETUP</span>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Command APDU:</div>
+          <div class="data-content">
+            CLA: 00, INS: 22, P1: C1, P2: A4<br>
+            Data: 80 0A [OID] 83 01 [KEY_REF]
+          </div>
+        </div>
+
+        <div class="crypto-box">
+          <div class="crypto-title">Purpose:</div>
+          <div class="formula">Establish cryptographic mechanism and key reference</div>
+          <div class="formula">OID: 0.4.0.127.0.7.2.2.4.2.4 (PACE-ECDH-GM-AES-CBC-CMAC-256)</div>
+          <div class="formula">KEY_REF: 02 (CAN) or 01 (MRZ)</div>
+        </div>
+
+        <div class="note">
+          Response: SW = 9000 (Success)
+        </div>
+      </div>
+
+      <!-- Step 1: Get Encrypted Nonce -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">1</div>
+          <h2 class="step-title">Get Encrypted Nonce</h2>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow">→</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow left">←</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="tags">
+          <span class="tag send">SEND</span>
+          <span class="tag receive">RECEIVE</span>
+          <span class="tag compute">DECRYPT</span>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Command APDU:</div>
+          <div class="data-content">
+            CLA: 10, INS: 86, P1: 00, P2: 00<br>
+            Data: 7C 00 (empty dynamic authentication data)
+          </div>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Response APDU:</div>
+          <div class="data-content">
+            7C [LEN] 80 [LEN] [ENCRYPTED_NONCE]
+          </div>
+        </div>
+
+        <div class="crypto-box">
+          <div class="crypto-title">Cryptographic Operations:</div>
+          <div class="formula">K_π = KDF(password, OID)</div>
+          <div class="formula">s = Decrypt(K_π, encrypted_nonce)</div>
+          <div class="formula">where s = decrypted nonce (32 bytes)</div>
+        </div>
+      </div>
+
+      <!-- Step 2: Mapping (Generic Mapping) -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">2</div>
+          <h2 class="step-title">Mapping - Generate Ephemeral Domain Parameters</h2>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow">→</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow left">←</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="tags">
+          <span class="tag send">SEND</span>
+          <span class="tag receive">RECEIVE</span>
+          <span class="tag compute">ECDH</span>
+          <span class="tag compute">MAPPING</span>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Command APDU:</div>
+          <div class="data-content">
+            7C [LEN] 81 [LEN] [PCD_MAPPING_PUBLIC_KEY]<br>
+            where PCD_MAPPING_PUBLIC_KEY = 04 || X || Y (65 bytes)
+          </div>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Response APDU:</div>
+          <div class="data-content">
+            7C [LEN] 82 [LEN] [PICC_MAPPING_PUBLIC_KEY]
+          </div>
+        </div>
+
+        <div class="crypto-box">
+          <div class="crypto-title">Generic Mapping (GM) Operations:</div>
+          <div class="formula">1. Generate random mapping key pair: (d_map, Q_map)</div>
+          <div class="formula">2. Exchange Q_map with PICC → get Q_map_PICC</div>
+          <div class="formula">3. H = ECDH(d_map, Q_map_PICC) = d_map × Q_map_PICC</div>
+          <div class="formula">4. G' = s × G + H (new ephemeral generator)</div>
+          <div class="formula">5. Ephemeral domain params: (p, a, b, G', n, h)</div>
+        </div>
+      </div>
+
+      <!-- Step 3: Key Agreement -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">3</div>
+          <h2 class="step-title">Key Agreement - Exchange Ephemeral Public Keys</h2>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow">→</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow left">←</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="tags">
+          <span class="tag send">SEND</span>
+          <span class="tag receive">RECEIVE</span>
+          <span class="tag compute">ECDH</span>
+          <span class="tag compute">KDF</span>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Command APDU:</div>
+          <div class="data-content">
+            7C [LEN] 83 [LEN] [PCD_EPHEMERAL_PUBLIC_KEY]<br>
+            Generated using ephemeral domain parameters G'
+          </div>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Response APDU:</div>
+          <div class="data-content">
+            7C [LEN] 84 [LEN] [PICC_EPHEMERAL_PUBLIC_KEY]
+          </div>
+        </div>
+
+        <div class="crypto-box">
+          <div class="crypto-title">Key Agreement & Derivation:</div>
+          <div class="formula">1. Generate ephemeral key pair using G': (d~, Q~)</div>
+          <div class="formula">2. Exchange Q~ with PICC → get Q~_PICC</div>
+          <div class="formula">3. K = ECDH(d~, Q~_PICC) = d~ × Q~_PICC</div>
+          <div class="formula">4. K_enc = KDF(K.x, "ENC", AES-256)</div>
+          <div class="formula">5. K_mac = KDF(K.x, "MAC", AES-256)</div>
+        </div>
+      </div>
+
+      <!-- Step 4: Mutual Authentication -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">4</div>
+          <h2 class="step-title">Mutual Authentication - Exchange Authentication Tokens</h2>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow">→</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow left">←</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="tags">
+          <span class="tag send">SEND</span>
+          <span class="tag receive">RECEIVE</span>
+          <span class="tag compute">CMAC</span>
+          <span class="tag compute">VERIFY</span>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Command APDU:</div>
+          <div class="data-content">
+            7C [LEN] 85 08 [AUTH_TOKEN_PCD]<br>
+            where AUTH_TOKEN_PCD = first 8 bytes of CMAC(K_mac, T-Block_PICC)
+          </div>
+        </div>
+
+        <div class="data-section">
+          <div class="data-title">Response APDU:</div>
+          <div class="data-content">
+            7C [LEN] 86 08 [AUTH_TOKEN_PICC]<br>
+            where AUTH_TOKEN_PICC = first 8 bytes of CMAC(K_mac, T-Block_PCD)
+          </div>
+        </div>
+
+        <div class="crypto-box">
+          <div class="crypto-title">T-Block Structure (Public Key Data Object):</div>
+          <div class="formula">T-Block = 7F49 [LEN] 06 0A [OID] 86 41 [PUBLIC_KEY]</div>
+          <div class="formula">• Tag 7F49: Public Key Data Object</div>
+          <div class="formula">• Tag 06: Object Identifier (OID)</div>
+          <div class="formula">• Tag 86: Ephemeral Public Key (65 bytes with 04 prefix)</div>
+          <div class="formula">Auth Token = CMAC(K_mac, T-Block)[0:8]</div>
+        </div>
+
+        <div class="note">
+          <strong>Mutual Verification:</strong><br>
+          1. PCD computes and sends: CMAC(K_mac, T-Block containing PICC's ephemeral public key)<br>
+          2. PICC verifies PCD's token and responds with: CMAC(K_mac, T-Block containing PCD's ephemeral public key)<br>
+          3. PCD verifies PICC's token
+        </div>
+      </div>
+
+      <!-- Step 5: Secure Messaging Established -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">✓</div>
+          <h2 class="step-title">Secure Messaging Channel Established</h2>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="entity pcd">PCD</div>
+          <div class="arrow">⟷</div>
+          <div class="entity picc">PICC</div>
+        </div>
+
+        <div class="tags">
+          <span class="tag">COMPLETE</span>
+          <span class="tag">ENCRYPTED</span>
+          <span class="tag">AUTHENTICATED</span>
+        </div>
+
+        <div class="crypto-box">
+          <div class="crypto-title">Session Keys Available:</div>
+          <div class="formula">K_enc: Session encryption key (AES-256)</div>
+          <div class="formula">K_mac: Session MAC key (AES-CMAC)</div>
+          <div class="formula">SSC: Send Sequence Counter = 0</div>
+        </div>
+
+        <div class="note">
+          <strong>Ready for Secure Communication:</strong><br>
+          All subsequent APDU commands will be encrypted with K_enc and authenticated with K_mac using the established
+          secure messaging protocol.
+        </div>
+      </div>
+
+      <div class="legend">
+        <h3>Legend & Key Information</h3>
+        <div class="legend-grid">
+          <div class="legend-item">
+            <div class="legend-color" style="background: #3498db;"></div>
+            <span><strong>PCD:</strong> Proximity Coupling Device (Reader)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #e74c3c;"></div>
+            <span><strong>PICC:</strong> Proximity Integrated Circuit Card</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #2ecc71;"></div>
+            <span><strong>ECDH:</strong> Elliptic Curve Diffie-Hellman</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #f39c12;"></div>
+            <span><strong>CMAC:</strong> Cipher-based MAC</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #9b59b6;"></div>
+            <span><strong>KDF:</strong> Key Derivation Function</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #34495e;"></div>
+            <span><strong>GM:</strong> Generic Mapping</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <strong>Common OIDs:</strong><br>
+          • 0.4.0.127.0.7.2.2.4.2.4: PACE-ECDH-GM-AES-CBC-CMAC-256<br>
+          • 0.4.0.127.0.7.2.2.4.2.3: PACE-ECDH-GM-AES-CBC-CMAC-192<br>
+          • 0.4.0.127.0.7.2.2.4.2.2: PACE-ECDH-GM-AES-CBC-CMAC-128
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
