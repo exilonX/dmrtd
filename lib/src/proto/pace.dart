@@ -1172,36 +1172,39 @@ class PACE {
         final step4Response =
             await icc.generalAuthenticatePACEstep4(data: step4data);
         //here the response is always 9000, otherwise exception is thrown
+        if (step4Response != null && step4Response.isNotEmpty) {
+          ResponseAPDUStep4Pace apduStep4Pace =
+              ResponseAPDUStep4Pace(step4Response);
+          apduStep4Pace.parse();
+          Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
 
-        ResponseAPDUStep4Pace apduStep4Pace =
-            ResponseAPDUStep4Pace(step4Response);
-        apduStep4Pace.parse();
-        Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
+          _log.debug(
+              "Checking if computed auth token is the same as auth token from ICC");
 
-        _log.debug(
-            "Checking if computed auth token is the same as auth token from ICC");
+          Uint8List calcInputDataTerminalforCheck =
+              PACE.generateEncodingInputData(
+                  cryptographicMechanism: paceProtocol,
+                  publicKeyToSign: ephemeralPublicICCenvelope);
 
-        Uint8List calcInputDataTerminalforCheck =
-            PACE.generateEncodingInputData(
-                cryptographicMechanism: paceProtocol,
-                publicKeyToSign: ephemeralPublicICCenvelope);
+          Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
+              paceProtocol: paceProtocol,
+              inputData: calcInputDataTerminalforCheck,
+              macKey: macKey);
 
-        Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
-            paceProtocol: paceProtocol,
-            inputData: calcInputDataTerminalforCheck,
-            macKey: macKey);
+          _log.sdVerbose(
+              "Received auth token from ICC: ${computedAuthTokenICC.hex()}"
+              ", Computed auth token: ${inputTokenTerminalforCheck.hex()}");
 
-        _log.sdVerbose(
-            "Received auth token from ICC: ${computedAuthTokenICC.hex()}"
-            ", Computed auth token: ${inputTokenTerminalforCheck.hex()}");
-
-        if (!inputTokenTerminalforCheck.equals(computedAuthTokenICC)) {
-          _log.error(
-              "PACE(4); Auth token from ICC and terminal are not the same");
-          throw PACEError(
-              "PACE(4); Auth token from ICC and terminal are not the same");
+          if (!inputTokenTerminalforCheck.equals(computedAuthTokenICC)) {
+            _log.error(
+                "PACE(4); Auth token from ICC and terminal are not the same");
+            throw PACEError(
+                "PACE(4); Auth token from ICC and terminal are not the same");
+          }
+        } else {
+          _log.warning(
+              "Card returned SW=9000 with no data. This is a successful authentication. Skipping verification of card's token.");
         }
-
         _log.debug("Finished PACE SM key establishment");
         _log.debug("Setting up SM session ...");
         CipherAlgorithm cipherAlgo = paceProtocol.cipherAlgoritm;
@@ -1361,33 +1364,39 @@ class PACE {
             await icc.generalAuthenticatePACEstep4(data: step4data);
         //here the response is always 9000, otherwise exception is thrown
 
-        ResponseAPDUStep4Pace apduStep4Pace =
-            ResponseAPDUStep4Pace(step4Response);
-        apduStep4Pace.parse();
-        Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
+        if (step4Response != null && step4Response.isNotEmpty) {
+          ResponseAPDUStep4Pace apduStep4Pace =
+              ResponseAPDUStep4Pace(step4Response);
+          apduStep4Pace.parse();
+          Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
 
-        _log.debug(
-            "Checking if computed auth token is the same as auth token from ICC");
+          Uint8List calcInputDataTerminalforCheck =
+              PACE.generateEncodingInputData(
+                  cryptographicMechanism: paceProtocol,
+                  publicKeyToSign: ephemeralPublicICCenvelope);
 
-        Uint8List calcInputDataTerminalforCheck =
-            PACE.generateEncodingInputData(
-                cryptographicMechanism: paceProtocol,
-                publicKeyToSign: ephemeralPublicICCenvelope);
+          Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
+              paceProtocol: paceProtocol,
+              inputData: calcInputDataTerminalforCheck,
+              macKey: macKey);
 
-        Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
-            paceProtocol: paceProtocol,
-            inputData: calcInputDataTerminalforCheck,
-            macKey: macKey);
+          _log.sdVerbose(
+              "Received auth token from ICC: ${computedAuthTokenICC.hex()}"
+              ", Computed auth token: ${inputTokenTerminalforCheck.hex()}");
 
-        _log.sdVerbose(
-            "Received auth token from ICC: ${computedAuthTokenICC.hex()}"
-            ", Computed auth token: ${inputTokenTerminalforCheck.hex()}");
+          if (!inputTokenTerminalforCheck.equals(computedAuthTokenICC)) {
+            _log.error(
+                "PACE(4); Auth token from ICC and terminal are not the same");
+            throw PACEError(
+                "PACE(4); Auth token from ICC and terminal are not the same");
+          }
 
-        if (!inputTokenTerminalforCheck.equals(computedAuthTokenICC)) {
-          _log.error(
-              "PACE(4); Auth token from ICC and terminal are not the same");
-          throw PACEError(
-              "PACE(4); Auth token from ICC and terminal are not the same");
+          _log.debug(
+              "Checking if computed auth token is the same as auth token from ICC");
+        } else {
+          // This is the path your code will now take.
+          _log.warning(
+              "Card returned SW=9000 with no data. This is a successful authentication. Skipping verification of card's token.");
         }
 
         _log.debug("Finished PACE SM key establishment");

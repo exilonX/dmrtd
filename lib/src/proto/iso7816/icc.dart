@@ -156,7 +156,7 @@ class ICC {
   /// Sends GENERAL AUTHENTICATE - step 4' command to ICC.
   /// ICC should return dynamic authentication data (with encrypted nonce in it).
   /// Can throw [ICCError] or [ComProviderError].
-  Future<Uint8List> generalAuthenticatePACEstep4(
+  Future<Uint8List?> generalAuthenticatePACEstep4(
       {required Uint8List data,
       int ne = 256,
       int cla = ISO7816_CLA.NO_SM}) async {
@@ -175,7 +175,7 @@ class ICC {
       throw ICCError("General authentication template (step 4) failed",
           rapdu.status, rapdu.data);
     }
-    return rapdu.data!;
+    return rapdu.data;
   }
 
   //end of pace protocol
