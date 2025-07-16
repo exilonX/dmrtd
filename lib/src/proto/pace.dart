@@ -684,37 +684,46 @@ class PACE {
         "Cipher algorithm: $cipherAlgorithm, "
         "Mac key length: ${macKey.length}"
         "Mac key: ${macKey.hex()}");
-
+    Uint8List computedAuthToken;
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       _log.debug("Cipher algorithm: AES.");
       if (keyLength == KEY_LENGTH.s128) {
         AESCipher aesCipher = AESChiperSelector.getChiper(
             size: KEY_LENGTH.s128); //size is not important
-        Uint8List computedAuthToken =
+        computedAuthToken =
             aesCipher.calculateCMAC(data: inputData, key: macKey);
         _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
-        return computedAuthToken;
       } else if (keyLength == KEY_LENGTH.s256) {
         AESCipher aesCipher = AESChiperSelector.getChiper(
             size: KEY_LENGTH.s256); //size is not important
-        Uint8List computedAuthToken =
+        computedAuthToken =
             aesCipher.calculateCMAC(data: inputData, key: macKey);
         _log.sdVerbose("Computed auth token 256: ${computedAuthToken.hex()}");
-        return computedAuthToken;
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      var computedAuthToken =
+      computedAuthToken =
           ISO9797.macAlg3(macKey, inputData); //padding included:)
       _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
-      return computedAuthToken;
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
     }
+
+    // ======================= THE FINAL FIX =======================
+    // The ICAO standard requires the token to be truncated to 8 bytes.
+    if (computedAuthToken.length > 8) {
+      _log.warning(
+          "TRUNCATING auth token to 8 bytes as per ICAO 9303 standard.");
+      // Create a view of the first 8 bytes without copying memory.
+      final truncatedToken = Uint8List.view(computedAuthToken.buffer, 0, 8);
+      return truncatedToken;
+    }
+
+    return computedAuthToken;
   }
 
   static Uint8List decryptNonce(
