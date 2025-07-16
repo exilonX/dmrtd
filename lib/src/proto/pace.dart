@@ -671,59 +671,103 @@ class PACE {
     }
   }
 
+  // static Uint8List cacluateAuthToken(
+  //     {required OIEPaceProtocol paceProtocol,
+  //     required Uint8List inputData,
+  //     required Uint8List macKey}) {
+  //   KEY_LENGTH keyLength = paceProtocol.keyLength;
+  //   CipherAlgorithm cipherAlgorithm = paceProtocol.cipherAlgoritm;
+
+  //   _log.debug("Calculating Auth token ...");
+  //   _log.sdDebug("Seed: ${inputData.hex()}, "
+  //       "Key length: $keyLength, "
+  //       "Cipher algorithm: $cipherAlgorithm, "
+  //       "Mac key length: ${macKey.length}"
+  //       "Mac key: ${macKey.hex()}");
+  //   Uint8List computedAuthToken;
+  //   if (cipherAlgorithm == CipherAlgorithm.AES) {
+  //     _log.debug("Cipher algorithm: AES.");
+  //     if (keyLength == KEY_LENGTH.s128) {
+  //       AESCipher aesCipher = AESChiperSelector.getChiper(
+  //           size: KEY_LENGTH.s128); //size is not important
+  //       computedAuthToken =
+  //           aesCipher.calculateCMAC(data: inputData, key: macKey);
+  //       _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
+  //     } else if (keyLength == KEY_LENGTH.s256) {
+  //       AESCipher aesCipher = AESChiperSelector.getChiper(
+  //           size: KEY_LENGTH.s256); //size is not important
+  //       computedAuthToken =
+  //           aesCipher.calculateCMAC(data: inputData, key: macKey);
+  //       _log.sdVerbose("Computed auth token 256: ${computedAuthToken.hex()}");
+  //     } else {
+  //       _log.error("Key length is not supported");
+  //       throw PACEError("Key length is not supported");
+  //     }
+  //   } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
+  //     _log.debug("Cipher algorithm: DESede.");
+  //     computedAuthToken =
+  //         ISO9797.macAlg3(macKey, inputData); //padding included:)
+  //     _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
+  //   } else {
+  //     _log.error("Cipher algorithm is not supported");
+  //     throw PACEError("Cipher algorithm is not supported");
+  //   }
+
+  //   // ======================= THE FINAL FIX =======================
+  //   // The ICAO standard requires the token to be truncated to 8 bytes.
+  //   if (computedAuthToken.length > 8) {
+  //     _log.warning(
+  //         "TRUNCATING auth token to 8 bytes as per ICAO 9303 standard.");
+  //     // Create a view of the first 8 bytes without copying memory.
+  //     final truncatedToken = Uint8List.view(computedAuthToken.buffer, 0, 8);
+  //     return truncatedToken;
+  //   }
+
+  //   return computedAuthToken;
+  // }
+
   static Uint8List cacluateAuthToken(
       {required OIEPaceProtocol paceProtocol,
       required Uint8List inputData,
       required Uint8List macKey}) {
-    KEY_LENGTH keyLength = paceProtocol.keyLength;
-    CipherAlgorithm cipherAlgorithm = paceProtocol.cipherAlgoritm;
-
     _log.debug("Calculating Auth token ...");
-    _log.sdDebug("Seed: ${inputData.hex()}, "
-        "Key length: $keyLength, "
-        "Cipher algorithm: $cipherAlgorithm, "
-        "Mac key length: ${macKey.length}"
-        "Mac key: ${macKey.hex()}");
-    Uint8List computedAuthToken;
-    if (cipherAlgorithm == CipherAlgorithm.AES) {
-      _log.debug("Cipher algorithm: AES.");
-      if (keyLength == KEY_LENGTH.s128) {
-        AESCipher aesCipher = AESChiperSelector.getChiper(
-            size: KEY_LENGTH.s128); //size is not important
-        computedAuthToken =
-            aesCipher.calculateCMAC(data: inputData, key: macKey);
-        _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
-      } else if (keyLength == KEY_LENGTH.s256) {
-        AESCipher aesCipher = AESChiperSelector.getChiper(
-            size: KEY_LENGTH.s256); //size is not important
-        computedAuthToken =
-            aesCipher.calculateCMAC(data: inputData, key: macKey);
-        _log.sdVerbose("Computed auth token 256: ${computedAuthToken.hex()}");
-      } else {
-        _log.error("Key length is not supported");
-        throw PACEError("Key length is not supported");
+    _log.sdDebug("Input Data (T-Block): ${inputData.hex()}, "
+        "MAC key: ${macKey.hex()}");
+
+    if (paceProtocol.cipherAlgoritm == CipherAlgorithm.AES) {
+      _log.debug("Cipher algorithm: AES. Using standard PointyCastle CMac.");
+
+      // ======================= THE FINAL FIX =======================
+      // Instantiate the standard AES-CMAC from PointyCastle.
+      // The second argument is the desired MAC size in BITS.
+      // ICAO 9303 specifies an 8-byte (64-bit) token.
+      // The CMac class handles the correct truncation internally.
+      final cmac = CMac(AESEngine(), 64);
+
+      // Initialize with the MAC key.
+      cmac.init(KeyParameter(macKey));
+
+      // Process the entire T-Block and get the final 8-byte token.
+      final Uint8List correctToken = cmac.process(inputData);
+
+      _log.sdVerbose(
+          "Standard PointyCastle CMac Auth Token (8 bytes): ${correctToken.hex()}");
+      return correctToken;
+      // ===============================================================
+    } else if (paceProtocol.cipherAlgoritm == CipherAlgorithm.DESede) {
+      _log.debug("Cipher algorithm: DESede. Using ISO9797-Alg3.");
+      // This part was likely already correct. ISO9797-Alg3 should produce an 8-byte MAC.
+      var computedAuthToken = ISO9797.macAlg3(macKey, inputData);
+
+      if (computedAuthToken.length != 8) {
+        _log.warning("DESede MAC was not 8 bytes, truncating.");
+        return Uint8List.view(computedAuthToken.buffer, 0, 8);
       }
-    } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
-      _log.debug("Cipher algorithm: DESede.");
-      computedAuthToken =
-          ISO9797.macAlg3(macKey, inputData); //padding included:)
-      _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
+      return computedAuthToken;
     } else {
-      _log.error("Cipher algorithm is not supported");
-      throw PACEError("Cipher algorithm is not supported");
+      _log.error("Unsupported cipher algorithm for Auth Token");
+      throw PACEError("Unsupported cipher algorithm for Auth Token");
     }
-
-    // ======================= THE FINAL FIX =======================
-    // The ICAO standard requires the token to be truncated to 8 bytes.
-    if (computedAuthToken.length > 8) {
-      _log.warning(
-          "TRUNCATING auth token to 8 bytes as per ICAO 9303 standard.");
-      // Create a view of the first 8 bytes without copying memory.
-      final truncatedToken = Uint8List.view(computedAuthToken.buffer, 0, 8);
-      return truncatedToken;
-    }
-
-    return computedAuthToken;
   }
 
   static Uint8List decryptNonce(
