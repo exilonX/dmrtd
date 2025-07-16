@@ -730,43 +730,45 @@ class PACE {
       {required OIEPaceProtocol paceProtocol,
       required Uint8List inputData,
       required Uint8List macKey}) {
-    _log.debug("Calculating Auth token ...");
-    _log.sdDebug("Input Data (T-Block): ${inputData.hex()}, "
-        "MAC key: ${macKey.hex()}");
+    _log.debug("Calculating Auth token using the application's AESCipher...");
+    _log.sdDebug("InputData (T-Block): ${inputData.hex()}");
+    _log.sdDebug("MAC key: ${macKey.hex()}");
 
     if (paceProtocol.cipherAlgoritm == CipherAlgorithm.AES) {
-      _log.debug("Cipher algorithm: AES. Using standard PointyCastle CMac.");
-
-      // ======================= THE FINAL FIX =======================
-      // Instantiate the standard AES-CMAC from PointyCastle.
-      // The second argument is the desired MAC size in BITS.
-      // ICAO 9303 specifies an 8-byte (64-bit) token.
-      // The CMac class handles the correct truncation internally.
-      final cmac = CMac(AESEngine(), 64);
-
-      // Initialize with the MAC key.
-      cmac.init(KeyParameter(macKey));
-
-      // Process the entire T-Block and get the final 8-byte token.
-      final Uint8List correctToken = cmac.process(inputData);
+      // ======================= THE FINAL CORRECT CODE =======================
+      // 1. USE YOUR EXISTING AESCIPHER. IT WORKS.
+      // This correctly uses your FixedCMac which avoids the IV crash.
+      final aesCipher =
+          AESChiperSelector.getChiper(size: paceProtocol.keyLength);
+      final Uint8List fullComputedToken =
+          aesCipher.calculateCMAC(data: inputData, key: macKey);
 
       _log.sdVerbose(
-          "Standard PointyCastle CMac Auth Token (8 bytes): ${correctToken.hex()}");
-      return correctToken;
-      // ===============================================================
-    } else if (paceProtocol.cipherAlgoritm == CipherAlgorithm.DESede) {
-      _log.debug("Cipher algorithm: DESede. Using ISO9797-Alg3.");
-      // This part was likely already correct. ISO9797-Alg3 should produce an 8-byte MAC.
-      var computedAuthToken = ISO9797.macAlg3(macKey, inputData);
+          "Full computed auth token from FixedCMac (${fullComputedToken.length} bytes): ${fullComputedToken.hex()}");
 
-      if (computedAuthToken.length != 8) {
-        _log.warning("DESede MAC was not 8 bytes, truncating.");
+      // 2. TRUNCATE THE RESULT TO 8 BYTES.
+      // This is the ICAO standard and the only remaining bug.
+      if (fullComputedToken.length < 8) {
+        throw PACEError("Computed auth token is less than 8 bytes long!");
+      }
+
+      // Use a view to avoid extra memory allocation.
+      final truncatedToken = Uint8List.view(fullComputedToken.buffer, 0, 8);
+
+      _log.sdDebug(
+          "Truncated 8-byte Auth Token to be sent: ${truncatedToken.hex()}");
+      return truncatedToken;
+      // ======================================================================
+    } else if (paceProtocol.cipherAlgoritm == CipherAlgorithm.DESede) {
+      _log.debug("Cipher algorithm: DESede.");
+      var computedAuthToken = ISO9797.macAlg3(macKey, inputData);
+      if (computedAuthToken.length > 8) {
         return Uint8List.view(computedAuthToken.buffer, 0, 8);
       }
       return computedAuthToken;
     } else {
-      _log.error("Unsupported cipher algorithm for Auth Token");
-      throw PACEError("Unsupported cipher algorithm for Auth Token");
+      _log.error("Cipher algorithm is not supported");
+      throw PACEError("Cipher algorithm is not supported");
     }
   }
 
