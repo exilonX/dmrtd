@@ -313,71 +313,106 @@ class PACE {
   static const cryptographicMechanismReferenceLen = 8;
   static const referenceOfPublicKeyLen = 1;
 
-  /// Generates data for ENCODING INPUT command
-  /// At least one of [ephemeralPublicPoint] or [publicKeyDH] must be provided.
-  /// If both are provided [ephemeralPublicPoint] exception is thrown.
+  // /// Generates data for ENCODING INPUT command
+  // /// At least one of [ephemeralPublicPoint] or [publicKeyDH] must be provided.
+  // /// If both are provided [ephemeralPublicPoint] exception is thrown.
+  // static Uint8List generateEncodingInputData({
+  //   required OIEPaceProtocol crytpographicMechanism,
+  //   required PublicKeyPACE ephemeralPublic,
+  //   required PublicKeyPACE iccEphemeralPublic,
+  // }) {
+  //   try {
+  //     _log.debug("Generating ENCODING INPUT data ...");
+  //     const INPUT_DATA_T_TAG = 0x7f49;
+  //     const OBJECT_IDENTIFIER_TAG = 0x06;
+  //     const DH_POINT = 0x84;
+  //     const ELLIPTIC_CURVE_POINT = 0x84;
+  //     const UNCOMPRESSED_POINT = 0x04;
+  //     const EPHEMERAL_PUBLIC_KEY_TAG = 0x86;
+
+  //     // object identifier, both modes have the same identifier layout
+  //     TLV objectIdentifierData = TLV(
+  //         OBJECT_IDENTIFIER_TAG,
+  //         Uint8List.sublistView(
+  //             Uint8List.fromList(crytpographicMechanism.identifier), 1));
+
+  //     _log.sdVerbose(
+  //         "Object identifier: ${objectIdentifierData.toBytes().hex()}");
+  //     TLV? publicKeyData = null;
+
+  //     _log.sdVerbose("Ephemeral public point: ${ephemeralPublic.toString()}");
+
+  //     if (ephemeralPublic.agreementAlgorithm == TOKEN_AGREEMENT_ALGO.ECDH) {
+  //       // ECDH
+  //       // Uint8List uncompressedPoint = Uint8List.fromList([UNCOMPRESSED_POINT]);
+  //       publicKeyData = TLV(ELLIPTIC_CURVE_POINT, ephemeralPublic.toBytes());
+  //       _log.sdVerbose("Public key EC: ${publicKeyData.toBytes().hex()}");
+  //     } else {
+  //       // DH
+  //       publicKeyData = TLV(DH_POINT, ephemeralPublic.toBytes());
+  //       _log.sdVerbose("Public key DH: ${publicKeyData.toBytes().hex()}");
+  //     }
+
+  //     // ICC's ephemeral public key (tag 0x84)
+  //     TLV iccPublicKeyData =
+  //         TLV(EPHEMERAL_PUBLIC_KEY_TAG, iccEphemeralPublic.toBytes());
+  //     _log.sdVerbose(
+  //         "ICC ephemeral public key: ${iccPublicKeyData.toBytes().hex()}");
+
+  //     if (publicKeyData == null) {
+  //       _log.error("PACE.generateEncodingInputData; Public key DH is null");
+  //       throw PACEError(
+  //           "PACE.generateEncodingInputData; Public key DH is null");
+  //     }
+
+  //     TLV inputData = TLV(
+  //         INPUT_DATA_T_TAG,
+  //         Uint8List.fromList(objectIdentifierData.toBytes() +
+  //             publicKeyData.toBytes() +
+  //             iccPublicKeyData.toBytes()));
+
+  //     _log.sdDebug("ENCODING INPUT data: ${inputData.toBytes().hex()}");
+  //     return inputData.toBytes();
+  //   } on Exception catch (e) {
+  //     _log.error(
+  //         "PACE.generateEncodingInputData; Encoding input data failed: $e");
+  //     throw PACEError(
+  //         "PACE.generateEncodingInputData; Encoding input data failed: $e");
+  //   }
+  // }
+
   static Uint8List generateEncodingInputData({
-    required OIEPaceProtocol crytpographicMechanism,
-    required PublicKeyPACE ephemeralPublic,
-    required PublicKeyPACE iccEphemeralPublic,
+    required OIEPaceProtocol cryptographicMechanism,
+    required PublicKeyPACE publicKeyToSign, // <-- Takes only ONE key
   }) {
+    _log.debug("Generating standardized ENCODING INPUT data (T-Block)...");
+    const INPUT_DATA_T_TAG = 0x7F49;
+    const OBJECT_IDENTIFIER_TAG = 0x06;
+    const EPHEMERAL_PUBLIC_KEY_TAG =
+        0x86; // Per jmrtd log, use 0x86 for the key
+
     try {
-      _log.debug("Generating ENCODING INPUT data ...");
-      const INPUT_DATA_T_TAG = 0x7f49;
-      const OBJECT_IDENTIFIER_TAG = 0x06;
-      const DH_POINT = 0x84;
-      const ELLIPTIC_CURVE_POINT = 0x84;
-      const UNCOMPRESSED_POINT = 0x04;
-      const EPHEMERAL_PUBLIC_KEY_TAG = 0x84;
+      // 1. OID TLV
+      final oidBytes = Uint8List.fromList(cryptographicMechanism.identifier);
+      final oidTLV = TLV(OBJECT_IDENTIFIER_TAG, oidBytes);
 
-      // object identifier, both modes have the same identifier layout
-      TLV objectIdentifierData = TLV(
-          OBJECT_IDENTIFIER_TAG,
-          Uint8List.sublistView(
-              Uint8List.fromList(crytpographicMechanism.identifier), 1));
+      // 2. Public Key TLV (using the single key passed in)
+      final publicKeyBytes = publicKeyToSign.toBytes();
+      final publicKeyTLV = TLV(EPHEMERAL_PUBLIC_KEY_TAG, publicKeyBytes);
 
-      _log.sdVerbose(
-          "Object identifier: ${objectIdentifierData.toBytes().hex()}");
-      TLV? publicKeyData = null;
+      // 3. Concatenate OID TLV and Public Key TLV for the inner value
+      final innerValue = BytesBuilder();
+      innerValue.add(oidTLV.toBytes());
+      innerValue.add(publicKeyTLV.toBytes());
 
-      _log.sdVerbose("Ephemeral public point: ${ephemeralPublic.toString()}");
+      // 4. Wrap everything in the 7F49 tag
+      final tBlock = TLV(INPUT_DATA_T_TAG, innerValue.toBytes());
 
-      if (ephemeralPublic.agreementAlgorithm == TOKEN_AGREEMENT_ALGO.ECDH) {
-        // ECDH
-        // Uint8List uncompressedPoint = Uint8List.fromList([UNCOMPRESSED_POINT]);
-        publicKeyData = TLV(ELLIPTIC_CURVE_POINT, ephemeralPublic.toBytes());
-        _log.sdVerbose("Public key EC: ${publicKeyData.toBytes().hex()}");
-      } else {
-        // DH
-        publicKeyData = TLV(DH_POINT, ephemeralPublic.toBytes());
-        _log.sdVerbose("Public key DH: ${publicKeyData.toBytes().hex()}");
-      }
-
-      // ICC's ephemeral public key (tag 0x84)
-      TLV iccPublicKeyData =
-          TLV(EPHEMERAL_PUBLIC_KEY_TAG, iccEphemeralPublic.toBytes());
-      _log.sdVerbose(
-          "ICC ephemeral public key: ${iccPublicKeyData.toBytes().hex()}");
-
-      if (publicKeyData == null) {
-        _log.error("PACE.generateEncodingInputData; Public key DH is null");
-        throw PACEError(
-            "PACE.generateEncodingInputData; Public key DH is null");
-      }
-
-      TLV inputData = TLV(
-          INPUT_DATA_T_TAG,
-          Uint8List.fromList(objectIdentifierData.toBytes() +
-              publicKeyData.toBytes() +
-              iccPublicKeyData.toBytes()));
-
-      _log.sdDebug("ENCODING INPUT data: ${inputData.toBytes().hex()}");
-      return inputData.toBytes();
-    } on Exception catch (e) {
-      _log.error(
-          "PACE.generateEncodingInputData; Encoding input data failed: $e");
-      throw PACEError(
-          "PACE.generateEncodingInputData; Encoding input data failed: $e");
+      _log.sdDebug("Correct T-Block: ${tBlock.toBytes().hex()}");
+      return tBlock.toBytes();
+    } catch (e) {
+      _log.error("Failed to generate correct T-Block: $e");
+      rethrow;
     }
   }
 
@@ -968,13 +1003,13 @@ class PACE {
         _log.sdVerbose("ENC key: ${encKey.hex()} "
             "MAC key: ${macKey.hex()}");
 
-        // Uint8List calcInputData = PACE.generateEncodingInputData(
-        //     crytpographicMechanism: paceProtocol,
+        Uint8List calcInputData = PACE.generateEncodingInputData(
+            cryptographicMechanism: paceProtocol,
+            publicKeyToSign: ephemeralPublicICCenvelope);
+
+        // Uint8List calcInputData = PACE.generateSimpleAuthData(
         //     ephemeralPublic: domainParameter.getPubKeyEphemeral(),
         //     iccEphemeralPublic: ephemeralPublicICCenvelope);
-        Uint8List calcInputData = PACE.generateSimpleAuthData(
-            ephemeralPublic: domainParameter.getPubKeyEphemeral(),
-            iccEphemeralPublic: ephemeralPublicICCenvelope);
 
         print("=== DETAILED T-BLOCK ANALYSIS ===");
         print("Protocol object: ${paceProtocol.toString()}");
@@ -1069,9 +1104,8 @@ class PACE {
 
         Uint8List calcInputDataTerminalforCheck =
             PACE.generateEncodingInputData(
-                crytpographicMechanism: paceProtocol,
-                ephemeralPublic: domainParameter.getPubKeyEphemeral(),
-                iccEphemeralPublic: ephemeralPublicICCenvelope);
+                cryptographicMechanism: paceProtocol,
+                publicKeyToSign: ephemeralPublicICCenvelope);
 
         Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -1234,9 +1268,8 @@ class PACE {
             "MAC key: ${macKey.hex()}");
 
         Uint8List calcInputData = PACE.generateEncodingInputData(
-            crytpographicMechanism: paceProtocol,
-            ephemeralPublic: ephemeralPublicICCenvelope,
-            iccEphemeralPublic: ephemeralPublicICCenvelope);
+            cryptographicMechanism: paceProtocol,
+            publicKeyToSign: ephemeralPublicICCenvelope);
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -1259,9 +1292,8 @@ class PACE {
 
         Uint8List calcInputDataTerminalforCheck =
             PACE.generateEncodingInputData(
-                crytpographicMechanism: paceProtocol,
-                ephemeralPublic: domainParameter.getPubKeyEphemeral(),
-                iccEphemeralPublic: ephemeralPublicICCenvelope);
+                cryptographicMechanism: paceProtocol,
+                publicKeyToSign: ephemeralPublicICCenvelope);
 
         Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
