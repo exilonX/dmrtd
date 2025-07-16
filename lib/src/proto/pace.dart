@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/src/crypto/cmac.dart';
 import 'package:dmrtd/src/lds/asn1ObjectIdentifiers.dart';
+import 'package:pointycastle/asn1/primitives/asn1_object_identifier.dart';
 import 'package:dmrtd/src/proto/iso7816/iso7816.dart';
 import 'package:dmrtd/src/proto/public_key_pace.dart';
 import 'package:dmrtd/src/crypto/kdf.dart';
@@ -14,8 +15,10 @@ import 'package:dmrtd/src/proto/ssc.dart';
 import "package:dmrtd/src/proto/des_smcipher.dart";
 import 'package:dmrtd/src/proto/mrtd_sm.dart';
 import 'package:dmrtd/src/crypto/des.dart';
+import 'package:pointycastle/asn1/primitives/asn1_object_identifier.dart';
 
 import 'package:logging/logging.dart';
+import 'package:pointycastle/asn1.dart';
 import 'package:pointycastle/ecc/api.dart';
 
 import "package:dmrtd/src/extension/logging_apis.dart";
@@ -380,35 +383,56 @@ class PACE {
   //         "PACE.generateEncodingInputData; Encoding input data failed: $e");
   //   }
   // }
-
   static Uint8List generateEncodingInputData({
     required OIEPaceProtocol cryptographicMechanism,
-    required PublicKeyPACE publicKeyToSign, // <-- Takes only ONE key
+    required PublicKeyPACE publicKeyToSign,
   }) {
     _log.debug("Generating standardized ENCODING INPUT data (T-Block)...");
     const INPUT_DATA_T_TAG = 0x7F49;
     const OBJECT_IDENTIFIER_TAG = 0x06;
-    const EPHEMERAL_PUBLIC_KEY_TAG =
-        0x86; // Per jmrtd log, use 0x86 for the key
+    const EPHEMERAL_PUBLIC_KEY_TAG = 0x86;
 
     try {
-      // 1. OID TLV
-      final oidBytes = Uint8List.fromList(cryptographicMechanism.identifier);
-      final oidTLV = TLV(OBJECT_IDENTIFIER_TAG, oidBytes);
+      // --- CORRECT OID ENCODING USING THE PROVIDED CLASS STRUCTURE ---
 
-      // 2. Public Key TLV (using the single key passed in)
+      // 1. Get the OID string from the correct property: 'identifierString'.
+      final String oidString = cryptographicMechanism.identifierString;
+
+      // 2. Use pointycastle to create an ASN1ObjectIdentifier object from the string.
+      final asn1Oid = ASN1ObjectIdentifier.fromIdentifierString(oidString);
+
+      // 3. Encode the entire OID object to get the full TLV bytes.
+      //    This gives us [TAG, LENGTH, VALUE].
+      final Uint8List fullOidTlv = asn1Oid.encode();
+
+      // 4. Extract ONLY the value bytes, which is what the jmrtd log shows.
+      //    We strip the first two bytes (the Tag 0x06 and the Length 0x0A).
+      final Uint8List oidValueBytes = fullOidTlv.sublist(2);
+
+      _log.debug("Correctly Encoded OID Value: ${oidValueBytes.hex()}");
+
+      // --- BUILD THE FINAL TLV STRUCTURE ---
+
+      // Build the OID TLV object (Tag + Length + Value)
+      final oidTLV = TLV(OBJECT_IDENTIFIER_TAG, oidValueBytes);
+
+      // Build the Public Key TLV object
       final publicKeyBytes = publicKeyToSign.toBytes();
       final publicKeyTLV = TLV(EPHEMERAL_PUBLIC_KEY_TAG, publicKeyBytes);
 
-      // 3. Concatenate OID TLV and Public Key TLV for the inner value
+      // Concatenate the bytes of the two inner TLV objects
       final innerValue = BytesBuilder();
       innerValue.add(oidTLV.toBytes());
       innerValue.add(publicKeyTLV.toBytes());
 
-      // 4. Wrap everything in the 7F49 tag
+      // Wrap everything in the final 7F49 tag
       final tBlock = TLV(INPUT_DATA_T_TAG, innerValue.toBytes());
 
-      _log.sdDebug("Correct T-Block: ${tBlock.toBytes().hex()}");
+      final goldenTBlock = "7f494f060a04007f000702020402048641" +
+          publicKeyToSign.toBytes().hex();
+      _log.sdDebug("Final Corrected T-Block:   ${tBlock.toBytes().hex()}");
+      _log.sdDebug("Goal (from jmrtd log):     ${goldenTBlock}");
+
       return tBlock.toBytes();
     } catch (e) {
       _log.error("Failed to generate correct T-Block: $e");
