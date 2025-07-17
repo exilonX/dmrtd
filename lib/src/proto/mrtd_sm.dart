@@ -47,17 +47,10 @@ class MrtdSM extends SecureMessaging {
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
-    // final do97 = SecureMessaging.do97(pcmd.ne);
-    // _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
-    // ======================= THE FIRST PART OF THE FIX =======================
-    // Always generate DO97, even if Le is 0.
-    // We will construct it manually here to ensure it's always correct.
-    final le = cmd.ne;
-    final do97 = TLV(0x97, Uint8List.fromList([le]));
-    _log.verbose("Generated mandatory DO97=${do97.toBytes().hex()}");
-    // =======================================================================
+    final do97 = SecureMessaging.do97(pcmd.ne);
+    _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
-    final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97.toBytes());
+    final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
     _log.verbose("Generated M=${M.hex()} size=${M.length}");
 
     final N = generateN(M: M);
@@ -69,7 +62,7 @@ class MrtdSM extends SecureMessaging {
     _log.verbose("Calculated CC=${CC.hex()}");
     _log.verbose("Generated data DO8E=${do8E.hex()}");
 
-    pcmd.data = Uint8List.fromList(dataDO + do97.toBytes() + do8E);
+    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
     pcmd.ne = 256; // serialized as 0x00
     return pcmd;
   }
