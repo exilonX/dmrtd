@@ -40,15 +40,16 @@ class MrtdSM extends SecureMessaging {
 
     // Increment SSC should be made before encrypting data
     _ssc.increment();
+    _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
 
     final pcmd = maskCmd(cmd);
     _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
 
-    final dataDO = generateDataDO(pcmd);
-    _log.verbose("Generated data DO=${dataDO.hex()}");
-
     final do97 = SecureMessaging.do97(pcmd.ne);
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
+
+    final dataDO = generateDataDO(pcmd);
+    _log.verbose("Generated data DO=${dataDO.hex()}");
 
     final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
     _log.verbose("Generated M=${M.hex()} size=${M.length}");
