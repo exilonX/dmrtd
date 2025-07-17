@@ -143,16 +143,7 @@ class DeriveKey {
       case DeriveKeyType.CMAC192:
       case DeriveKeyType.CMAC256:
         {
-          final hash = paceMode ? sha1 : sha256;
-
-          if (paceMode) {
-            print(
-                "KDF_PACE_PATCH: Using SHA-1 for AES-256 session key derivation.");
-          }
-
-          var key = KDF(hash, keySeed, mode);
-          // ===============================================================
-
+          var key = KDF(sha256, keySeed, mode);
           if (keyType == DeriveKeyType.AES192 ||
               keyType == DeriveKeyType.CMAC192) {
             key = key.sublist(0, 24); // use only 192 bits = 8 * 24;
