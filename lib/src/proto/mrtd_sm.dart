@@ -45,23 +45,39 @@ class MrtdSM extends SecureMessaging {
     final pcmd = maskCmd(cmd);
     _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
 
-    final do97 = SecureMessaging.do97(pcmd.ne);
-    _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
-
+    // 3) Build data DO (DO87 or DO85)
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
-    final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
-    _log.verbose("Generated M=${M.hex()} size=${M.length}");
+    final do97 = SecureMessaging.do97(pcmd.ne);
+    _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
-    final N = generateN(M: M);
-    _log.verbose("Generated N=${N.hex()} size=${N.length}");
-    _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
+    // 5) Compute MAC input = [SSC || header_masked || dataDO || do97] padded once at end
+    final macInput =
+        Uint8List.fromList(_ssc.toBytes() + pcmd.rawHeader() + dataDO + do97);
+    final paddedMacInput = ISO9797.pad(macInput, blockLen());
 
-    final CC = cipher.mac(N);
+    _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
+    _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
+
+    // final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
+    // _log.verbose("Generated M=${M.hex()} size=${M.length}");
+
+    // final N = generateN(M: M);
+    // _log.verbose("Generated N=${N.hex()} size=${N.length}");
+    // _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
+
+    // 6) Calculate CC = AES‑CMAC(K<sub>MAC</sub>, paddedMacInput)
+    final CC = cipher.mac(paddedMacInput);
+
     final do8E = SecureMessaging.do8E(CC);
     _log.verbose("Calculated CC=${CC.hex()}");
-    _log.verbose("Generated data DO8E=${do8E.hex()}");
+    _log.verbose("Generated DO8E=${do8E.hex()}");
+
+    // final CC = cipher.mac(N);
+    // final do8E = SecureMessaging.do8E(CC);
+    // _log.verbose("Calculated CC=${CC.hex()}");
+    // _log.verbose("Generated data DO8E=${do8E.hex()}");
 
     pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
     pcmd.ne = 256; // serialized as 0x00
