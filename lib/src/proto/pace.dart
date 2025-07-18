@@ -1224,6 +1224,8 @@ class PACE {
           bitSize: bitSize,
         );
 
+        ssc.increment();
+
         // and finally plug it into your SM layer
         final smCipher = (cipherAlgo == CipherAlgorithm.AES)
             ? AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength)
