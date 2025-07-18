@@ -1205,21 +1205,32 @@ class PACE {
           _log.warning(
               "Card returned SW=9000 with no data. This is a successful authentication. Skipping verification of card's token.");
         }
+
         _log.debug("Finished PACE SM key establishment");
         _log.debug("Setting up SM session ...");
         CipherAlgorithm cipherAlgo = paceProtocol.cipherAlgoritm;
-        if (cipherAlgo == CipherAlgorithm.AES) {
-          _log.debug("PACE; Cipher algorithm: AES");
-          icc.sm = MrtdSM(
-              AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength),
-              AES_SSC());
-        } else if (cipherAlgo == CipherAlgorithm.DESede) {
-          _log.debug("PACE; Cipher algorithm: DESede");
-          icc.sm = MrtdSM(DES_SMCipher(encKey, macKey), DESede_PACE_SSC());
-        } else {
-          _log.error("PACE; Cipher algorithm is not supported");
-          throw PACEError("PACE.Cipher algorithm is not supported");
-        }
+        // grab the raw SEC1 bytes of each ephemeral key
+        final ifdEphem = domainParameter.getPubKeyEphemeral().toBytes();
+        final iccEphem = ephemeralPublicICCenvelope.toBytes();
+        // decide bitSize from cipher algorithm
+        final bitSize = (cipherAlgo == CipherAlgorithm.AES)
+            ? AES_BLOCK_SIZE * 8
+            : DESCipher.blockSize * 8;
+
+        // build the correct SSC as per ICAO‑9303 §9.8.7.3
+        final ssc = SSC.fromPACE(
+          iccEphemeral: iccEphem,
+          ifdEphemeral: ifdEphem,
+          bitSize: bitSize,
+        );
+
+        // and finally plug it into your SM layer
+        final smCipher = (cipherAlgo == CipherAlgorithm.AES)
+            ? AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength)
+            : DES_SMCipher(encKey, macKey);
+
+        icc.sm = MrtdSM(smCipher, ssc);
+
         _log.debug("... SM (with ECDH) session is set up.");
       } on Exception catch (e) {
         _log.error("PACE <ECDH> (4); Failed: $e");
