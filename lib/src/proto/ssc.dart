@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/src/crypto/aes.dart';
 import 'package:dmrtd/src/crypto/des.dart';
+import 'package:crypto/crypto.dart';
 
 /// Class represents Send Sequence Counter as specified in
 /// section 9.8.2 of ICAO 9303 p11 doc.
@@ -29,7 +30,7 @@ class SSC {
     }
   }
 
-  static SSC fromPACE({
+  static SSC fromBAC({
     required Uint8List iccEphemeral,
     required Uint8List ifdEphemeral,
     required int bitSize,
@@ -47,6 +48,17 @@ class SSC {
     final sscBytes = Uint8List.fromList([...iccTail, ...ifdTail]);
 
     return SSC(sscBytes, bitSize);
+  }
+
+  static SSC fromPACE({
+    required Uint8List iccEphemeral,
+    required Uint8List ifdEphemeral,
+  }) {
+    final concatenated = Uint8List.fromList([...iccEphemeral, ...ifdEphemeral]);
+    final hash = sha1.convert(concatenated).bytes;
+    final sscBytes = Uint8List.fromList(
+        hash.sublist(hash.length - 16)); // Last 16 bytes of SHA-1 hash
+    return SSC(sscBytes, 128); // AES SSC bit size is always 128 bits (16 bytes)
   }
 
   void increment() {

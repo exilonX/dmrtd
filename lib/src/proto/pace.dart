@@ -1212,17 +1212,10 @@ class PACE {
         // grab the raw SEC1 bytes of each ephemeral key
         final ifdEphem = domainParameter.getPubKeyEphemeral().toBytes();
         final iccEphem = ephemeralPublicICCenvelope.toBytes();
-        // decide bitSize from cipher algorithm
-        final bitSize = (cipherAlgo == CipherAlgorithm.AES)
-            ? AES_BLOCK_SIZE * 8
-            : DESCipher.blockSize * 8;
 
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
-        final ssc = SSC.fromPACE(
-          iccEphemeral: iccEphem,
-          ifdEphemeral: ifdEphem,
-          bitSize: bitSize,
-        );
+        final ssc =
+            SSC.fromPACE(iccEphemeral: iccEphem, ifdEphemeral: ifdEphem);
 
         ssc.increment();
 
