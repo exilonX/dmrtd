@@ -2,6 +2,7 @@
 import 'dart:typed_data';
 import 'package:dmrtd/dmrtd.dart';
 import 'package:dmrtd/extensions.dart';
+import 'package:dmrtd/internal.dart';
 import 'package:dmrtd/src/proto/access_key.dart';
 import 'package:logging/logging.dart';
 
@@ -439,6 +440,13 @@ class Passport {
       print(fileData[0x010B]!.hex());
       // Here you would add your code to parse the address TLV data.
     }
+  }
+
+  /// Transceives a raw, pre-formatted command APDU for diagnostics.
+  /// The command will be automatically protected by the active Secure Messaging session.
+  /// Throws [PassportError] on failure.
+  Future<ResponseAPDU> transceiveRawAPDU(CommandAPDU command) async {
+    return await _exec(() => _api.transceiveRaw(command));
   }
 
   Future<T> _exec<T>(Function f) async {

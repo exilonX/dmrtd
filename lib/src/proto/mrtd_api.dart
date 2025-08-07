@@ -2,6 +2,7 @@
 import 'dart:typed_data';
 
 import 'package:dmrtd/dmrtd.dart';
+import 'package:dmrtd/internal.dart';
 
 import 'access_key.dart';
 import 'bac.dart';
@@ -346,6 +347,16 @@ class MrtdApi {
     }
 
     return data;
+  }
+
+  Future<ResponseAPDU> transceiveRaw(CommandAPDU command) async {
+    _log.debug(
+        "Transceiving raw APDU via internal _transceive: ${command.toString()}");
+    // This uses the private _transceive method inside ICC.dart, which is what we need.
+    // The ICC class has a private _transceive that we can't call directly,
+    // so we must add a public method to ICC to expose it.
+    // Let's assume we'll add a public `transceiveApdu` to ICC.
+    return await icc.transceiveApdu(command);
   }
 
   void _reduceMaxRead() {
