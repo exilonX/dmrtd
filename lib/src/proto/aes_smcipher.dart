@@ -34,12 +34,12 @@ class AES_SMCipher implements SMCipher {
     //IV = E(KSenc, SCC)
     _log.sdDebug(
         "Encrypting IV with KSenc: ${KSenc.hex()}, ssc: ${ssc.toBytes().hex()}");
-    Uint8List iv = cipher.encrypt(
-        data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
+    // Uint8List iv = cipher.encrypt(
+    //     data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
 
-    _log.sdVerbose("Encrypted IV: ${iv.hex()}");
+    _log.sdVerbose("Encrypted IV: ${ssc.toBytes()}");
 
-    _log.sdDebug("Encrypting data with KSenc: ${KSenc.hex()}, iv: ${iv.hex()}");
+    // _log.sdDebug("Encrypting data with KSenc: ${KSenc.hex()}, iv: ${iv.hex()}");
     Uint8List encrypted =
         cipher.encrypt(data: data, key: KSenc, iv: ssc.toBytes());
 
@@ -56,9 +56,9 @@ class AES_SMCipher implements SMCipher {
       throw Exception("PACE_SMCipher_AES.decrypt: SSC should not be null");
 
     //IV = E(KSenc, SCC)
-    Uint8List iv = cipher.encrypt(
-        data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
-    _log.sdVerbose("IV: ${iv.hex()}");
+    // Uint8List iv = cipher.encrypt(
+    //     data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
+    _log.sdVerbose("IV: ${ssc.toBytes()}");
     Uint8List decrypted =
         cipher.decrypt(data: data, key: KSenc, iv: ssc.toBytes());
     _log.sdVerbose("Decrypted data: ${decrypted.hex()}");
