@@ -1229,7 +1229,7 @@ class PACE {
 
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
         final ssc =
-            SSC.fromPACE(iccEphemeral: iccEphem, ifdEphemeral: ifdEphem);
+            SSC.anotherPACE(iccEphemeral: iccEphem, ifdEphemeral: ifdEphem);
         print("SSC after creation: ${ssc.toBytes().hex()}");
         print("SSC length: ${ssc.toBytes().length}");
 
