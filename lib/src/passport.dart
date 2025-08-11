@@ -33,6 +33,7 @@ class Passport {
   final _log = Logger("passport");
   final MrtdApi _api;
   _DF _dfSelected = _DF.None;
+  bool _smActive = false;
 
   /// Constructs new [Passport] instance with communication [provider].
   /// [provider] should be already connected.
@@ -49,6 +50,7 @@ class Passport {
     await _selectDF1();
     await _exec(() => _api.initSessionViaBAC(keys));
     _log.debug("Session established");
+    _smActive = true;
   }
 
   /// Starts new Secure Messaging session with passport
@@ -60,7 +62,11 @@ class Passport {
   Future<void> startSessionPACE(
       final AccessKey accessKey, EfCardAccess efCardAccess) async {
     _log.debug("Starting session");
+    await _selectDF1Plain(); // <-- PRE-SELECT AID (plaintext)
+
     await _exec(() => _api.initSessionViaPACE(accessKey, efCardAccess));
+    _smActive = true;
+    _dfSelected = _DF.DF1; // <-- ensure state
     _log.debug("Session established");
   }
 
@@ -396,12 +402,23 @@ class Passport {
     }
   }
 
+  Future<void> _selectDF1Plain() async {
+    if (_dfSelected == _DF.DF1) return;
+    _log.debug("Selecting DF1 (plain, no SM)");
+    await _exec(
+        () => _api.selectEMrtdApplication()); // 00 A4 04 0C ... A0000002471001
+    _dfSelected = _DF.DF1;
+  }
+
   Future<void> _selectDF1() async {
-    if (_dfSelected != _DF.DF1) {
-      _log.debug("Selecting DF1");
-      await _exec(() => _api.selectEMrtdApplication());
-      _dfSelected = _DF.DF1;
+    // If we already have SM, assume the DF is selected from before PACE.
+    if (_smActive) {
+      _log.fine("Skipping SELECT DF1 (SM active)");
+      _dfSelected = _DF.DF1; // ensure state says DF1
+      return;
     }
+    // No SM yet → do a plain SELECT
+    await _selectDF1Plain();
   }
 
   /// Selects the eMRTD application, establishes a BAC session,
