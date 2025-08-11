@@ -62,11 +62,10 @@ class Passport {
   Future<void> startSessionPACE(
       final AccessKey accessKey, EfCardAccess efCardAccess) async {
     _log.debug("Starting session");
-    await _selectDF1Plain(); // <-- PRE-SELECT AID (plaintext)
+    // await _selectDF1Plain(); // <-- PRE-SELECT AID (plaintext)
 
     await _exec(() => _api.initSessionViaPACE(accessKey, efCardAccess));
     _smActive = true;
-    _dfSelected = _DF.DF1; // <-- ensure state
     _log.debug("Session established");
   }
 
