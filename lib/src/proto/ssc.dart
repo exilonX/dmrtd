@@ -54,11 +54,49 @@ class SSC {
     required Uint8List iccEphemeral,
     required Uint8List ifdEphemeral,
   }) {
+    print("=== SSC.fromPACE DEBUG ===");
+    print("ICC ephemeral input: ${iccEphemeral.hex()}");
+    print("IFD ephemeral input: ${ifdEphemeral.hex()}");
+
     final concatenated = Uint8List.fromList([...iccEphemeral, ...ifdEphemeral]);
     final hash = sha1.convert(concatenated).bytes;
     final sscBytes = Uint8List.fromList(
         hash.sublist(hash.length - 16)); // Last 16 bytes of SHA-1 hash
     return SSC(sscBytes, 128); // AES SSC bit size is always 128 bits (16 bytes)
+  }
+
+  static SSC anotherPACE({
+    required Uint8List iccEphemeral,
+    required Uint8List ifdEphemeral,
+  }) {
+    print("=== SSC.fromPACE DEBUG ===");
+    print("ICC ephemeral input: ${iccEphemeral.hex()}");
+    print("IFD ephemeral input: ${ifdEphemeral.hex()}");
+
+    // Skip the 0x04 prefix to get X coordinates (assuming uncompressed points)
+    final iccX = iccEphemeral.sublist(1, 33); // 32 bytes X coordinate
+    final ifdX = ifdEphemeral.sublist(1, 33); // 32 bytes X coordinate
+
+    print("ICC X coordinate: ${iccX.hex()}");
+    print("IFD X coordinate: ${ifdX.hex()}");
+
+    // Take last 4 bytes of each X coordinate
+    final iccLast4 = iccX.sublist(28, 32);
+    final ifdLast4 = ifdX.sublist(28, 32);
+
+    print("ICC last 4 bytes: ${iccLast4.hex()}");
+    print("IFD last 4 bytes: ${ifdLast4.hex()}");
+
+    // Build SSC: ICC(4) || IFD(4) || ICC(4) || IFD(4)
+    final ssc = Uint8List(16);
+    ssc.setRange(0, 4, iccLast4); // First 4 bytes: ICC last 4
+    ssc.setRange(4, 8, ifdLast4); // Next 4 bytes: IFD last 4
+    ssc.setRange(8, 12, iccLast4); // Next 4 bytes: ICC last 4 (repeated)
+    ssc.setRange(12, 16, ifdLast4); // Last 4 bytes: IFD last 4 (repeated)
+
+    print("Final SSC: ${ssc.hex()}");
+
+    return SSC(ssc, 128);
   }
 
   void increment() {

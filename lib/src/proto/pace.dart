@@ -1213,11 +1213,28 @@ class PACE {
         final ifdEphem = domainParameter.getPubKeyEphemeral().toBytes();
         final iccEphem = ephemeralPublicICCenvelope.toBytes();
 
+        print("=== SSC INITIALIZATION DEBUG ===");
+        print("IFD ephemeral raw: ${ifdEphem.hex()}");
+        print("ICC ephemeral raw: ${iccEphem.hex()}");
+        print("IFD ephemeral length: ${ifdEphem.length}");
+        print("ICC ephemeral length: ${iccEphem.length}");
+
+        // Log just the X coordinates (what SSC might use)
+        if (ifdEphem.length >= 33) {
+          print("IFD X coordinate: ${ifdEphem.sublist(1, 33).hex()}");
+        }
+        if (iccEphem.length >= 33) {
+          print("ICC X coordinate: ${iccEphem.sublist(1, 33).hex()}");
+        }
+
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
         final ssc =
             SSC.fromPACE(iccEphemeral: iccEphem, ifdEphemeral: ifdEphem);
+        print("SSC after creation: ${ssc.toBytes().hex()}");
+        print("SSC length: ${ssc.toBytes().length}");
 
         ssc.increment();
+        print("SSC after increment: ${ssc.toBytes().hex()}");
 
         // and finally plug it into your SM layer
         final smCipher = (cipherAlgo == CipherAlgorithm.AES)

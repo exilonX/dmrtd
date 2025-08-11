@@ -59,13 +59,23 @@ class Passport {
   /// Can throw [ComProviderError] on connection failure.
   /// Throws [PassportError] when provided [keys] are invalid or
   /// if BAC session is not supported.
-  Future<void> startSessionPACE(
-      final AccessKey accessKey, EfCardAccess efCardAccess) async {
+  Future<void> startSessionPACE(AccessKey ak, EfCardAccess ca) async {
     _log.debug("Starting session");
-    // await _selectDF1Plain(); // <-- PRE-SELECT AID (plaintext)
 
-    await _exec(() => _api.initSessionViaPACE(accessKey, efCardAccess));
+    // Try PACE in DF1 first (some cards want this)
+    try {
+      await _selectDF1Plain(); // plain
+      await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
+    } catch (_) {
+      // Fallback: PACE in MF, then plain SELECT DF1
+      _log.warning("PACE in DF1 failed; retrying PACE in MF");
+      await _selectMF(); // plain
+      await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
+      await _selectDF1Plain(); // plain (!!!)
+    }
+
     _smActive = true;
+    _dfSelected = _DF.DF1;
     _log.debug("Session established");
   }
 
@@ -160,7 +170,7 @@ class Passport {
   /// if calling this function prior establishing session with passport.
   Future<EfCOM> readEfCOM() async {
     _log.debug("Reading EF.COM");
-    await _selectDF1();
+    if (!_smActive) await _selectDF1();
     return EfCOM.fromBytes(await _exec(() => _api.readFileBySFI(EfCOM.SFI)));
   }
 
