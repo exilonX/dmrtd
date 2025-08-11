@@ -38,6 +38,9 @@ class MrtdSM extends SecureMessaging {
     _log.sdVerbose("  data=${cmd.data?.hex()}");
     _log.verbose("  Le=${cmd.ne}");
 
+    // Keep ORIGINAL Le before we mutate anything
+    final int origNe = cmd.ne;
+
     // Increment SSC should be made before encrypting data
     _ssc.increment();
     _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
@@ -49,7 +52,7 @@ class MrtdSM extends SecureMessaging {
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
-    final do97 = SecureMessaging.do97(pcmd.ne);
+    final do97 = (origNe != 0) ? SecureMessaging.do97(origNe) : Uint8List(0);
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
     // 5) Compute MAC input = [SSC || header_masked || dataDO || do97] padded once at end

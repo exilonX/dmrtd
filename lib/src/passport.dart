@@ -71,12 +71,19 @@ class Passport {
       _log.warning("PACE in DF1 failed; retrying PACE in MF");
       await _selectMF(); // plain
       await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
-      await _selectDF1Plain(); // plain (!!!)
+      await _selectDF1SM(); // plain (!!!)
     }
 
     _smActive = true;
     _dfSelected = _DF.DF1;
     _log.debug("Session established");
+  }
+
+  Future<void> _selectDF1SM() async {
+    _log.fine("Selecting DF1 (via SM)");
+    // This call must go through ICC.sm so it’s protected:
+    await _exec(() => _api.selectEMrtdApplication());
+    _dfSelected = _DF.DF1;
   }
 
   /// Executes Active Authentication command with [challenge] and
