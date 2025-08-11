@@ -478,6 +478,24 @@ class ICC {
     return rapdu;
   }
 
+  Future<ResponseAPDU> transceiveRawUnprotected(CommandAPDU cmd) async {
+    _log.debug("Transceiving RAW (no SM): $cmd");
+    final rawCmd = cmd.toBytes();
+    _log.debug(
+        "Sending ${rawCmd.length} byte(s) to ICC: data='${rawCmd.hex()}'");
+
+    final rawResp = await _com.transceive(rawCmd);
+
+    _log.debug("Received ${rawResp.length} byte(s) from ICC");
+    final rapdu = ResponseAPDU.fromBytes(rawResp);
+    _log.debug(
+        "Received response from ICC: ${rapdu.status} data_len=${rapdu.data?.length ?? 0}");
+    if (rapdu.status.isError()) {
+      throw ICCError("APDU command failed", rapdu.status, rapdu.data);
+    }
+    return rapdu;
+  }
+
   /// Verifies a user-provided PIN against the card.
   ///
   /// Constructs and sends a VERIFY APDU command and interprets the specific

@@ -414,8 +414,16 @@ class Passport {
   Future<void> _selectDF1Plain() async {
     if (_dfSelected == _DF.DF1) return;
     _log.debug("Selecting DF1 (plain, no SM)");
-    await _exec(
-        () => _api.selectEMrtdApplication()); // 00 A4 04 0C ... A0000002471001
+
+    await _api.icc.transceiveRawUnprotected(CommandAPDU(
+      cla: 0x00,
+      ins: 0xA4,
+      p1: 0x04,
+      p2: 0x0C,
+      data: Uint8List.fromList([0xA0, 0x00, 0x00, 0x02, 0x47, 0x10, 0x01]),
+      ne: 0,
+    ));
+
     _dfSelected = _DF.DF1;
   }
 
