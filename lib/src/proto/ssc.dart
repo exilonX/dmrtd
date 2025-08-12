@@ -82,8 +82,8 @@ class SSC {
 
     // Build SSC: ICC(8) || IFD(8) - NO REPETITION
     final ssc = Uint8List(16);
-    ssc.setRange(0, 8, iccLast8); // First 8 bytes: ICC last 8
-    ssc.setRange(8, 16, ifdLast8); // Last 8 bytes: IFD last 8
+    ssc.setRange(0, 8, ifdLast8); // First 8 bytes: ICC last 8
+    ssc.setRange(8, 16, iccLast8); // Last 8 bytes: IFD last 8
 
     print("Final SSC: ${ssc.hex()}");
     return SSC(ssc, 128);
