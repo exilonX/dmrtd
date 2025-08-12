@@ -68,6 +68,10 @@ class Passport {
       await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
       await _selectDF1SM();
     } catch (_) {
+      // ✅ Ensure PACE retry is plain
+      _smActive = false;
+      _api.icc.sm = null;
+
       // Fallback: PACE in MF, then plain SELECT DF1
       _log.warning("PACE in DF1 failed; retrying PACE in MF");
       await _selectMF();
