@@ -64,8 +64,9 @@ class Passport {
 
     // Try PACE in DF1 first (some cards want this)
     try {
-      await _selectDF1Plain(); // plain
+      // await _selectDF1Plain(); // plain
       await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
+      await _selectDF1Plain(); // plain
     } catch (_) {
       // Fallback: PACE in MF, then plain SELECT DF1
       _log.warning("PACE in DF1 failed; retrying PACE in MF");
