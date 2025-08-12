@@ -66,13 +66,13 @@ class Passport {
     try {
       // await _selectDF1Plain(); // plain
       await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
-      await _selectDF1Plain(); // plain
+      await _selectDF1SM();
     } catch (_) {
       // Fallback: PACE in MF, then plain SELECT DF1
       _log.warning("PACE in DF1 failed; retrying PACE in MF");
-      await _selectMF(); // plain
+      await _selectMF();
       await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
-      await _selectDF1SM(); // plain (!!!)
+      await _selectDF1SM();
     }
 
     _smActive = true;

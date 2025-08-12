@@ -69,33 +69,23 @@ class SSC {
     required Uint8List iccEphemeral,
     required Uint8List ifdEphemeral,
   }) {
-    print("=== SSC.fromPACE DEBUG ===");
-    print("ICC ephemeral input: ${iccEphemeral.hex()}");
-    print("IFD ephemeral input: ${ifdEphemeral.hex()}");
-
-    // Skip the 0x04 prefix to get X coordinates (assuming uncompressed points)
+    // Skip the 0x04 prefix to get X coordinates
     final iccX = iccEphemeral.sublist(1, 33); // 32 bytes X coordinate
     final ifdX = ifdEphemeral.sublist(1, 33); // 32 bytes X coordinate
 
-    print("ICC X coordinate: ${iccX.hex()}");
-    print("IFD X coordinate: ${ifdX.hex()}");
+    // Take LAST 8 bytes of each X coordinate (not 4!)
+    final iccLast8 = iccX.sublist(24, 32); // Last 8 bytes
+    final ifdLast8 = ifdX.sublist(24, 32); // Last 8 bytes
 
-    // Take last 4 bytes of each X coordinate
-    final iccLast4 = iccX.sublist(28, 32);
-    final ifdLast4 = ifdX.sublist(28, 32);
+    print("ICC last 8 bytes: ${iccLast8.hex()}");
+    print("IFD last 8 bytes: ${ifdLast8.hex()}");
 
-    print("ICC last 4 bytes: ${iccLast4.hex()}");
-    print("IFD last 4 bytes: ${ifdLast4.hex()}");
-
-    // Build SSC: ICC(4) || IFD(4) || ICC(4) || IFD(4)
+    // Build SSC: ICC(8) || IFD(8) - NO REPETITION
     final ssc = Uint8List(16);
-    ssc.setRange(0, 4, iccLast4); // First 4 bytes: ICC last 4
-    ssc.setRange(4, 8, ifdLast4); // Next 4 bytes: IFD last 4
-    ssc.setRange(8, 12, iccLast4); // Next 4 bytes: ICC last 4 (repeated)
-    ssc.setRange(12, 16, ifdLast4); // Last 4 bytes: IFD last 4 (repeated)
+    ssc.setRange(0, 8, iccLast8); // First 8 bytes: ICC last 8
+    ssc.setRange(8, 16, ifdLast8); // Last 8 bytes: IFD last 8
 
     print("Final SSC: ${ssc.hex()}");
-
     return SSC(ssc, 128);
   }
 
