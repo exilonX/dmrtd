@@ -165,8 +165,10 @@ class MrtdSM extends SecureMessaging {
 
     // 6) Calculate CC = AES‑CMAC(K<sub>MAC</sub>, paddedMacInput)
     final CC = cipher.mac(paddedMacInput);
+    final truncatedCC =
+        Uint8List.fromList(CC.sublist(0, 8)); // Truncate to 8 bytes
 
-    final do8E = SecureMessaging.do8E(CC);
+    final do8E = SecureMessaging.do8E(truncatedCC);
     _log.verbose("Calculated CC=${CC.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 

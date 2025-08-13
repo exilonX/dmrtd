@@ -181,6 +181,10 @@ class Passport {
     return EfCOM.fromBytes(await _exec(() => _api.readFileBySFI(EfCOM.SFI)));
   }
 
+  Future<void> emrtdApp() async {
+    await _exec(() => _api.selectEMrtdApplication());
+  }
+
   /// Reads file EF.DG1 from passport.
   /// Session with passport should be already
   /// established before calling this function.
