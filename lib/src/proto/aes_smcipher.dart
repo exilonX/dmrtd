@@ -118,14 +118,19 @@ class AES_SMCipher implements SMCipher {
     _log.debug("mac: data size: ${data.length}");
     _log.sdVerbose("mac: data: ${data.hex()}, KSmac: ${KSmac.hex()}");
 
-    // --- Using PointyCastle for a standard, correct CMAC implementation ---
-    final cmac =
-        pc.CMac(pc.AESEngine(), 64); // AES-CMAC, 64-bit (8-byte) output
+    // 1. Initialize CMAC with the AES engine. Do NOT specify a macSize.
+    //    This will correctly use the full 128-bit block size.
+    final cmac = pc.CMac(pc.AESEngine());
     cmac.init(pc.KeyParameter(KSmac));
-    final macBytes = cmac.process(data);
-    // --------------------------------------------------------------------
 
-    _log.sdVerbose("CMAC (PointyCastle): ${macBytes.hex()}");
-    return macBytes;
+    // 2. Calculate the full 16-byte (128-bit) MAC.
+    final fullMac = cmac.process(data);
+
+    // 3. Truncate the full MAC to the required 8 bytes (64 bits) as per ICAO spec.
+    final truncatedMac = Uint8List.fromList(fullMac.sublist(0, 8));
+
+    _log.sdVerbose("Full CMAC (PointyCastle): ${fullMac.hex()}");
+    _log.sdVerbose("Truncated CMAC (for SM): ${truncatedMac.hex()}");
+    return truncatedMac;
   }
 }
