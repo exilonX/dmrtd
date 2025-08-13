@@ -5,6 +5,7 @@ import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/src/crypto/cmac.dart';
 import 'package:logging/logging.dart';
 import 'package:pointycastle/export.dart';
+import 'package:dmrtd/extensions.dart';
 
 import '../lds/asn1ObjectIdentifiers.dart';
 
@@ -79,7 +80,7 @@ class AESCipher {
       iv = Uint8List(AES_BLOCK_SIZE);
       _log.sdVerbose("AESCipher.encrypt; iv is null");
     }
-    final paddedData;
+    final Uint8List paddedData;
     if (padding) {
       _log.finest("Padding data with zeros to block size: $AES_BLOCK_SIZE");
       paddedData =
