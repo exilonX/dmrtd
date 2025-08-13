@@ -55,47 +55,28 @@ class Passport {
 
   /// Starts new Secure Messaging session with passport
   /// using PACE (Password Authenticated Connection Establishment) protocol.
-  ///
-  /// Can throw [ComProviderError] on connection failure.
-  /// Throws [PassportError] when provided [keys] are invalid or
-  /// if BAC session is not supported.
   Future<void> startSessionPACE(AccessKey ak, EfCardAccess ca) async {
     _log.debug("Starting session");
 
     try {
-      // Runs PACE (your MrtdApi currently enables SM at the end)
+      // Step 1: Establish the PACE secure channel.
+      // This MUST happen first, before any application selection.
+      // The card is in the Master File (MF) state here.
+      await _selectMF(); // Ensure we are at the root
       await _exec(() => _api.initSessionViaPACE(ak, ca));
+      _smActive = true; // SM is now active
+      _log.fine("PACE successful in MF. SM is active.");
 
-      // Temporarily disable SM -> do SELECT DF1 in plain
-      final savedSM = _api.icc.sm;
-      _api.icc.sm = null;
-      _smActive = false;
-
-      await _selectDF1Plain(); // <-- plain select (no SM)
-
-      // Restore SM from PACE
-      _api.icc.sm = savedSM;
-      _smActive = true;
-    } catch (_) {
-      _log.warning("PACE in DF1 failed; retrying PACE in MF");
-
-      // Ensure plain for retry
-      _api.icc.sm = null;
-      _smActive = false;
-
-      await _selectMF(); // plain (since sm == null)
-      await _exec(() => _api.initSessionViaPACE(ak, ca));
-
-      // Plain SELECT DF1
-      final savedSM = _api.icc.sm;
-      _api.icc.sm = null;
-      await _selectDF1Plain();
-      _api.icc.sm = savedSM;
-      _smActive = true;
+      // Step 2: Select the eMRTD application THROUGH the new secure channel.
+      await _selectDF1SM(); // This function uses SM.
+    } on Exception catch (e) {
+      _log.severe("PACE failed: ${e.toString()}");
+      // If anything fails, we re-throw to be caught by the UI.
+      rethrow;
     }
 
     _dfSelected = _DF.DF1;
-    _log.debug("Session established");
+    _log.debug("Session established and eMRTD Applet selected.");
   }
 
   Future<void> _selectDF1SM() async {
