@@ -182,7 +182,7 @@ class MrtdSM extends SecureMessaging {
     final protectedData = Uint8List.fromList(dataDO + do97 + do8E);
 
     pcmd.data = protectedData;
-    pcmd.ne = (origNe == 0) ? -1 : origNe;
+    pcmd.ne = origNe;
     return pcmd;
   }
 
