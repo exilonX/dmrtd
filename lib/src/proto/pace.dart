@@ -1233,7 +1233,7 @@ class PACE {
         print("SSC after creation: ${ssc.toBytes().hex()}");
         print("SSC length: ${ssc.toBytes().length}");
 
-        ssc.increment();
+        // ssc.increment();
         print("SSC after increment: ${ssc.toBytes().hex()}");
 
         // and finally plug it into your SM layer

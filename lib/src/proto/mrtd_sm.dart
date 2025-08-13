@@ -167,17 +167,18 @@ class MrtdSM extends SecureMessaging {
     final CC = cipher.mac(paddedMacInput);
     final truncatedCC =
         Uint8List.fromList(CC.sublist(0, 8)); // Truncate to 8 bytes
+    _log.verbose("CC input (truncated padded block) =${truncatedCC.hex()}");
 
     final do8E = SecureMessaging.do8E(truncatedCC);
-    _log.verbose("Calculated CC=${CC.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
     // final CC = cipher.mac(N);
     // final do8E = SecureMessaging.do8E(CC);
     // _log.verbose("Calculated CC=${CC.hex()}");
     // _log.verbose("Generated data DO8E=${do8E.hex()}");
+    final protectedData = Uint8List.fromList(dataDO + do97 + do8E);
 
-    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
+    pcmd.data = protectedData;
     pcmd.ne = 256; // serialized as 0x00
     return pcmd;
   }
