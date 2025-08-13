@@ -105,7 +105,7 @@ class AES_SMCipher implements SMCipher {
   }
 
   @override
-  Uint8List old_mac(Uint8List data) {
+  Uint8List mac(Uint8List data) {
     _log.debug("mac: data size: ${data.length}");
     _log.sdVerbose("mac: data: ${data.hex()}, KSmac: ${KSmac.hex()}");
     Uint8List cmac = cipher.calculateCMAC(data: data, key: KSmac);
@@ -113,24 +113,24 @@ class AES_SMCipher implements SMCipher {
     return cmac;
   }
 
-  @override
-  Uint8List mac(Uint8List data) {
-    _log.debug("mac: data size: ${data.length}");
-    _log.sdVerbose("mac: data: ${data.hex()}, KSmac: ${KSmac.hex()}");
+  // @override
+  // Uint8List mac(Uint8List data) {
+  //   _log.debug("mac: data size: ${data.length}");
+  //   _log.sdVerbose("mac: data: ${data.hex()}, KSmac: ${KSmac.hex()}");
 
-    // 1. Initialize CMAC with the AES engine and the FULL block size (128 bits).
-    //    This is the standard way to initialize AES-CMAC.
-    final cmac = pc.CMac(pc.AESEngine(), 128);
-    cmac.init(pc.KeyParameter(KSmac));
+  //   // 1. Initialize CMAC with the AES engine and the FULL block size (128 bits).
+  //   //    This is the standard way to initialize AES-CMAC.
+  //   final cmac = pc.CMac(pc.AESEngine(), 128);
+  //   cmac.init(pc.KeyParameter(KSmac));
 
-    // 2. Calculate the full 16-byte (128-bit) MAC.
-    final fullMac = cmac.process(data);
+  //   // 2. Calculate the full 16-byte (128-bit) MAC.
+  //   final fullMac = cmac.process(data);
 
-    // 3. Truncate the full MAC to the required 8 bytes as per ICAO spec.
-    final truncatedMac = Uint8List.fromList(fullMac.sublist(0, 8));
+  //   // 3. Truncate the full MAC to the required 8 bytes as per ICAO spec.
+  //   final truncatedMac = Uint8List.fromList(fullMac.sublist(0, 8));
 
-    _log.sdVerbose("Full CMAC (PointyCastle): ${fullMac.hex()}");
-    _log.sdVerbose("Truncated CMAC (for SM): ${truncatedMac.hex()}");
-    return truncatedMac;
-  }
+  //   _log.sdVerbose("Full CMAC (PointyCastle): ${fullMac.hex()}");
+  //   _log.sdVerbose("Truncated CMAC (for SM): ${truncatedMac.hex()}");
+  //   return truncatedMac;
+  // }
 }
