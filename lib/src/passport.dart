@@ -62,24 +62,38 @@ class Passport {
   Future<void> startSessionPACE(AccessKey ak, EfCardAccess ca) async {
     _log.debug("Starting session");
 
-    // Try PACE in DF1 first (some cards want this)
     try {
-      // await _selectDF1Plain(); // plain
-      await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
-      await _selectDF1SM();
-    } catch (_) {
-      // ✅ Ensure PACE retry is plain
-      _smActive = false;
-      _api.icc.sm = null;
+      // Runs PACE (your MrtdApi currently enables SM at the end)
+      await _exec(() => _api.initSessionViaPACE(ak, ca));
 
-      // Fallback: PACE in MF, then plain SELECT DF1
+      // Temporarily disable SM -> do SELECT DF1 in plain
+      final savedSM = _api.icc.sm;
+      _api.icc.sm = null;
+      _smActive = false;
+
+      await _selectDF1Plain(); // <-- plain select (no SM)
+
+      // Restore SM from PACE
+      _api.icc.sm = savedSM;
+      _smActive = true;
+    } catch (_) {
       _log.warning("PACE in DF1 failed; retrying PACE in MF");
-      await _selectMF();
-      await _exec(() => _api.initSessionViaPACE(ak, ca)); // PACE (plain)
-      await _selectDF1SM();
+
+      // Ensure plain for retry
+      _api.icc.sm = null;
+      _smActive = false;
+
+      await _selectMF(); // plain (since sm == null)
+      await _exec(() => _api.initSessionViaPACE(ak, ca));
+
+      // Plain SELECT DF1
+      final savedSM = _api.icc.sm;
+      _api.icc.sm = null;
+      await _selectDF1Plain();
+      _api.icc.sm = savedSM;
+      _smActive = true;
     }
 
-    _smActive = true;
     _dfSelected = _DF.DF1;
     _log.debug("Session established");
   }
