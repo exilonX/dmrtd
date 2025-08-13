@@ -133,6 +133,7 @@ class MrtdSM extends SecureMessaging {
     _log.verbose("  header=${cmd.rawHeader().hex()}");
     _log.sdVerbose("  data=${cmd.data?.hex()}");
     _log.verbose("  Le=${cmd.ne}");
+    final int origNe = cmd.ne;
 
     // Increment SSC should be made before encrypting data
     _ssc.increment();
@@ -145,16 +146,18 @@ class MrtdSM extends SecureMessaging {
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
-    final do97 = SecureMessaging.do97(pcmd.ne);
+    final do97 = (origNe > 0) ? SecureMessaging.do97(origNe) : Uint8List(0);
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
     // 5) Compute MAC input = [SSC || header_masked || dataDO || do97] padded once at end
     final macInput =
         Uint8List.fromList(_ssc.toBytes() + pcmd.rawHeader() + dataDO + do97);
-    final paddedMacInput = ISO9797.pad(macInput, blockLen());
+    final inputForMac = (cipher.type == CipherAlgorithm.AES)
+        ? macInput // ✅ No padding for AES-CMAC
+        : ISO9797.pad(macInput, blockLen()); // Only pad for DES
 
     _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
-    _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
+    _log.verbose("MAC input (padded block) =${inputForMac.hex()}");
 
     // final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
     // _log.verbose("Generated M=${M.hex()} size=${M.length}");
@@ -164,12 +167,12 @@ class MrtdSM extends SecureMessaging {
     // _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
 
     // 6) Calculate CC = AES‑CMAC(K<sub>MAC</sub>, paddedMacInput)
-    final CC = cipher.mac(paddedMacInput);
+    final CC = cipher.mac(inputForMac);
     // final truncatedCC =
     //     Uint8List.fromList(CC.sublist(0, 8)); // Truncate to 8 bytes
     _log.verbose("CC input (truncated padded block) =${CC.hex()}");
 
-    final do8E = SecureMessaging.do8E(CC);
+    final do8E = SecureMessaging.do8E(CC.sublist(0, 8));
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
     // final CC = cipher.mac(N);
@@ -179,7 +182,7 @@ class MrtdSM extends SecureMessaging {
     final protectedData = Uint8List.fromList(dataDO + do97 + do8E);
 
     pcmd.data = protectedData;
-    pcmd.ne = 256; // serialized as 0x00
+    pcmd.ne = (origNe == 0) ? -1 : origNe;
     return pcmd;
   }
 
