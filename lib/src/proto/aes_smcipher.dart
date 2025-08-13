@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 import 'ssc.dart';
 import 'iso7816/smcipher.dart';
 import '../crypto/aes.dart';
+import 'package:pointycastle/export.dart' as pc;
 
 class AES_SMCipher implements SMCipher {
   static final _log = Logger("AES_SMCipher");
@@ -104,11 +105,27 @@ class AES_SMCipher implements SMCipher {
   }
 
   @override
-  Uint8List mac(Uint8List data) {
+  Uint8List old_mac(Uint8List data) {
     _log.debug("mac: data size: ${data.length}");
     _log.sdVerbose("mac: data: ${data.hex()}, KSmac: ${KSmac.hex()}");
     Uint8List cmac = cipher.calculateCMAC(data: data, key: KSmac);
     _log.sdVerbose("CMAC: ${cmac.hex()}");
     return cmac;
+  }
+
+  @override
+  Uint8List mac(Uint8List data) {
+    _log.debug("mac: data size: ${data.length}");
+    _log.sdVerbose("mac: data: ${data.hex()}, KSmac: ${KSmac.hex()}");
+
+    // --- Using PointyCastle for a standard, correct CMAC implementation ---
+    final cmac =
+        pc.CMac(pc.AESEngine(), 64); // AES-CMAC, 64-bit (8-byte) output
+    cmac.init(pc.KeyParameter(KSmac));
+    final macBytes = cmac.process(data);
+    // --------------------------------------------------------------------
+
+    _log.sdVerbose("CMAC (PointyCastle): ${macBytes.hex()}");
+    return macBytes;
   }
 }
