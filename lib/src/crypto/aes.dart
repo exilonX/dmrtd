@@ -89,15 +89,24 @@ class AESCipher {
       paddedData = data;
     }
     var cipher;
-    if (mode == BLOCK_CIPHER_MODE.CBC)
+    if (mode == BLOCK_CIPHER_MODE.CBC) {
       cipher = CBCBlockCipher(_factory())
         ..init(true, ParametersWithIV(KeyParameter(key), iv!));
-    else
+      print("=== CBC CIPHER DEBUG ===");
+      print("Key: ${key.hex()}");
+      print("IV: ${iv.hex()}");
+      print("Input: ${paddedData.hex()}");
+    } else {
       cipher = ECBBlockCipher(_factory())
         ..init(true, KeyParameter(key)); //ECB mode
-
+      print("=== ECB CIPHER DEBUG ===");
+      print("Key: ${key.hex()}");
+      print("Input: ${paddedData.hex()}");
+    }
     //return cipher.process(paddedData);
-    return _processBlocks(cipher: cipher, data: paddedData);
+    final result = _processBlocks(cipher: cipher, data: paddedData);
+    print("Cipher result: ${result.hex()}");
+    return result;
   }
 
   Uint8List decrypt(
