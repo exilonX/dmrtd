@@ -174,10 +174,12 @@ class MrtdSM extends SecureMessaging {
       ..add(paddedHeader)
       ..add(dataDO);
     if (do97.isNotEmpty) nBuilder.add(do97);
-    final nUnpadded = nBuilder.toBytes();
-    print("N (unpadded): ${nUnpadded.hex()} len=${nUnpadded.length}");
 
-    final N = ISO9797.pad(nBuilder.toBytes(), 16);
+    final N = nBuilder.toBytes();
+    // print("N (unpadded): ${nUnpadded.hex()} len=${nUnpadded.length}");
+
+    // final N = ISO9797.pad(nBuilder.toBytes(), 16);
+    print("CMAC input N (no pad): ${N.hex()} len=${N.length}");
 
     print("N (padded16): ${N.hex()} len=${N.length}");
 
@@ -224,7 +226,7 @@ class MrtdSM extends SecureMessaging {
     final protectedData = Uint8List.fromList(dataDO + do97 + do8E);
 
     pcmd.data = protectedData;
-    pcmd.ne = 256;
+    pcmd.ne = 0;
 
     // 🚨 LOG THE EXACT FINAL APDU BYTES
     print("=== FINAL APDU DEBUG ===");
