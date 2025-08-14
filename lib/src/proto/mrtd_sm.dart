@@ -167,14 +167,18 @@ class MrtdSM extends SecureMessaging {
 
     final do97 = (origNe > 0) ? SecureMessaging.do97(origNe) : Uint8List(0);
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
+    print("PaddedHeader(16): ${paddedHeader.hex()}");
 
     final nBuilder = BytesBuilder()
       ..add(_ssc.toBytes())
       ..add(paddedHeader)
       ..add(dataDO);
     if (do97.isNotEmpty) nBuilder.add(do97);
+    final nUnpadded = nBuilder.toBytes();
+    print("N (unpadded): ${nUnpadded.hex()} len=${nUnpadded.length}");
 
     final N = _zeroPad16(nBuilder.toBytes());
+    print("N (padded16): ${N.hex()} len=${N.length}");
 
     final ccFull = cipher.mac(N); // 16 bytes
     final do8E = SecureMessaging.do8E(ccFull.sublist(0, 8));
