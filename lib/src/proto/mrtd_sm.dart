@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dmrtd/extensions.dart';
+import 'package:dmrtd/internal.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
@@ -158,6 +159,13 @@ class MrtdSM extends SecureMessaging {
 
     _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
     _log.verbose("MAC input (padded block) =${inputForMac.hex()}");
+    print("=== MAC DEBUG ===");
+    print("SSC: ${_ssc.toBytes().hex()}");
+    print("Header: ${pcmd.rawHeader().hex()}");
+    print("DO87: ${dataDO.hex()}");
+    print("DO97: ${do97.hex()}");
+    print("Combined: ${macInput.hex()}");
+    print("MAC key: ${(cipher as AES_SMCipher).KSenc.hex()}");
 
     // final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
     // _log.verbose("Generated M=${M.hex()} size=${M.length}");
