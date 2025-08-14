@@ -177,7 +177,8 @@ class MrtdSM extends SecureMessaging {
     final nUnpadded = nBuilder.toBytes();
     print("N (unpadded): ${nUnpadded.hex()} len=${nUnpadded.length}");
 
-    final N = _zeroPad16(nBuilder.toBytes());
+    final N = ISO9797.pad(nBuilder.toBytes(), 16);
+
     print("N (padded16): ${N.hex()} len=${N.length}");
 
     final ccFull = cipher.mac(N); // 16 bytes
