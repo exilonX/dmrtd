@@ -165,7 +165,7 @@ class MrtdSM extends SecureMessaging {
     print("DO87: ${dataDO.hex()}");
     print("DO97: ${do97.hex()}");
     print("Combined: ${macInput.hex()}");
-    print("MAC key: ${(cipher as AES_SMCipher).KSenc.hex()}");
+    print("ENC key: ${(cipher as AES_SMCipher).KSenc.hex()}");
 
     // final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
     // _log.verbose("Generated M=${M.hex()} size=${M.length}");
@@ -191,6 +191,17 @@ class MrtdSM extends SecureMessaging {
 
     pcmd.data = protectedData;
     pcmd.ne = origNe;
+
+    // 🚨 LOG THE EXACT FINAL APDU BYTES
+    print("=== FINAL APDU DEBUG ===");
+    print("CLA: ${pcmd.cla.toRadixString(16).padLeft(2, '0')}");
+    print("INS: ${pcmd.ins.toRadixString(16).padLeft(2, '0')}");
+    print("P1:  ${pcmd.p1.toRadixString(16).padLeft(2, '0')}");
+    print("P2:  ${pcmd.p2.toRadixString(16).padLeft(2, '0')}");
+    print("Lc:  ${pcmd.data?.length.toRadixString(16).padLeft(2, '0')}");
+    print("Data: ${pcmd.data?.hex()}");
+    print("Ne:  ${pcmd.ne}");
+
     return pcmd;
   }
 

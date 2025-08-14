@@ -74,8 +74,10 @@ class AES_SMCipher implements SMCipher {
     //IV = E(KSenc, SCC)
     _log.debug(
         "Encrypting IV with KSenc: ${KSenc.hex()}, ssc: ${ssc.toBytes().hex()}");
-    Uint8List iv = cipher.encrypt(
-        data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
+    // Uint8List iv = cipher.encrypt(
+    //     data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
+
+    final iv = ssc.toBytes();
 
     _log.debug("Encrypted IV: ${iv.hex()}");
 
@@ -96,8 +98,10 @@ class AES_SMCipher implements SMCipher {
       throw Exception("PACE_SMCipher_AES.decrypt: SSC should not be null");
 
     //IV = E(KSenc, SCC)
-    Uint8List iv = cipher.encrypt(
-        data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
+    // Uint8List iv = cipher.encrypt(
+    //     data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
+    final iv = ssc.toBytes();
+
     _log.debug("IV: ${iv.hex()}");
     Uint8List decrypted = cipher.decrypt(
         data: data, key: KSenc, iv: iv, mode: BLOCK_CIPHER_MODE.CBC);
