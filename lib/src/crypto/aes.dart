@@ -5,7 +5,6 @@ import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/src/crypto/cmac.dart';
 import 'package:logging/logging.dart';
 import 'package:pointycastle/export.dart';
-import 'package:dmrtd/extensions.dart';
 
 import '../lds/asn1ObjectIdentifiers.dart';
 
@@ -80,7 +79,7 @@ class AESCipher {
       iv = Uint8List(AES_BLOCK_SIZE);
       _log.sdVerbose("AESCipher.encrypt; iv is null");
     }
-    final Uint8List paddedData;
+    final paddedData;
     if (padding) {
       _log.finest("Padding data with zeros to block size: $AES_BLOCK_SIZE");
       paddedData =
@@ -90,24 +89,15 @@ class AESCipher {
       paddedData = data;
     }
     var cipher;
-    if (mode == BLOCK_CIPHER_MODE.CBC) {
+    if (mode == BLOCK_CIPHER_MODE.CBC)
       cipher = CBCBlockCipher(_factory())
         ..init(true, ParametersWithIV(KeyParameter(key), iv!));
-      print("=== CBC CIPHER DEBUG ===");
-      print("Key: ${key.hex()}");
-      print("IV: ${iv.hex()}");
-      print("Input: ${paddedData.hex()}");
-    } else {
+    else
       cipher = ECBBlockCipher(_factory())
         ..init(true, KeyParameter(key)); //ECB mode
-      print("=== ECB CIPHER DEBUG ===");
-      print("Key: ${key.hex()}");
-      print("Input: ${paddedData.hex()}");
-    }
+
     //return cipher.process(paddedData);
-    final result = _processBlocks(cipher: cipher, data: paddedData);
-    print("Cipher result: ${result.hex()}");
-    return result;
+    return _processBlocks(cipher: cipher, data: paddedData);
   }
 
   Uint8List decrypt(

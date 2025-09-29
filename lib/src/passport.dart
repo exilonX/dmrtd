@@ -33,7 +33,6 @@ class Passport {
   final _log = Logger("passport");
   final MrtdApi _api;
   _DF _dfSelected = _DF.None;
-  bool _smActive = false;
 
   /// Constructs new [Passport] instance with communication [provider].
   /// [provider] should be already connected.
@@ -50,40 +49,19 @@ class Passport {
     await _selectDF1();
     await _exec(() => _api.initSessionViaBAC(keys));
     _log.debug("Session established");
-    _smActive = true;
   }
 
   /// Starts new Secure Messaging session with passport
   /// using PACE (Password Authenticated Connection Establishment) protocol.
-  Future<void> startSessionPACE(AccessKey ak, EfCardAccess ca) async {
+  ///
+  /// Can throw [ComProviderError] on connection failure.
+  /// Throws [PassportError] when provided [keys] are invalid or
+  /// if BAC session is not supported.
+  Future<void> startSessionPACE(
+      final AccessKey accessKey, EfCardAccess efCardAccess) async {
     _log.debug("Starting session");
-
-    try {
-      // Step 1: Establish the PACE secure channel.
-      // This MUST happen first, before any application selection.
-      // The card is in the Master File (MF) state here.
-      await _selectMF(); // Ensure we are at the root
-      await _exec(() => _api.initSessionViaPACE(ak, ca));
-      _smActive = true; // SM is now active
-      _log.fine("PACE successful in MF. SM is active.");
-
-      // Step 2: Select the eMRTD application THROUGH the new secure channel.
-      await _selectDF1SM(); // This function uses SM.
-    } on Exception catch (e) {
-      _log.severe("PACE failed: ${e.toString()}");
-      // If anything fails, we re-throw to be caught by the UI.
-      rethrow;
-    }
-
-    _dfSelected = _DF.DF1;
-    _log.debug("Session established and eMRTD Applet selected.");
-  }
-
-  Future<void> _selectDF1SM() async {
-    _log.fine("Selecting DF1 (via SM)");
-    // This call must go through ICC.sm so it’s protected:
-    await _exec(() => _api.selectEMrtdApplication());
-    _dfSelected = _DF.DF1;
+    await _exec(() => _api.initSessionViaPACE(accessKey, efCardAccess));
+    _log.debug("Session established");
   }
 
   /// Executes Active Authentication command with [challenge] and
@@ -177,12 +155,8 @@ class Passport {
   /// if calling this function prior establishing session with passport.
   Future<EfCOM> readEfCOM() async {
     _log.debug("Reading EF.COM");
-    if (!_smActive) await _selectDF1();
+    await _selectDF1();
     return EfCOM.fromBytes(await _exec(() => _api.readFileBySFI(EfCOM.SFI)));
-  }
-
-  Future<void> emrtdApp() async {
-    await _exec(() => _api.selectEMrtdApplication());
   }
 
   /// Reads file EF.DG1 from passport.
@@ -422,35 +396,12 @@ class Passport {
     }
   }
 
-  Future<void> _selectDF1Plain() async {
-    if (_dfSelected == _DF.DF1) return;
-    _log.debug("Selecting DF1 (plain, no SM)");
-
-    await _api.icc.transceiveRawUnprotected(CommandAPDU(
-      cla: 0x00,
-      ins: 0xA4,
-      p1: 0x04,
-      p2: 0x0C,
-      data: Uint8List.fromList([0xA0, 0x00, 0x00, 0x02, 0x47, 0x10, 0x01]),
-      ne: 0,
-    ));
-
-    _dfSelected = _DF.DF1;
-  }
-
-  Future<ResponseAPDU> transceiveRawUnprotected(CommandAPDU command) async {
-    return await _exec(() => _api.icc.transceiveRawUnprotected(command));
-  }
-
   Future<void> _selectDF1() async {
-    // If we already have SM, assume the DF is selected from before PACE.
-    if (_smActive) {
-      _log.fine("Skipping SELECT DF1 (SM active)");
-      _dfSelected = _DF.DF1; // ensure state says DF1
-      return;
+    if (_dfSelected != _DF.DF1) {
+      _log.debug("Selecting DF1");
+      await _exec(() => _api.selectEMrtdApplication());
+      _dfSelected = _DF.DF1;
     }
-    // No SM yet → do a plain SELECT
-    await _selectDF1Plain();
   }
 
   /// Selects the eMRTD application, establishes a BAC session,
@@ -496,6 +447,10 @@ class Passport {
   /// Throws [PassportError] on failure.
   Future<ResponseAPDU> transceiveRawAPDU(CommandAPDU command) async {
     return await _exec(() => _api.transceiveRaw(command));
+  }
+
+  Future<ResponseAPDU> transceiveRawUnprotected(CommandAPDU command) async {
+    return await _exec(() => _api.icc.transceiveRawUnprotected(command));
   }
 
   Future<T> _exec<T>(Function f) async {
