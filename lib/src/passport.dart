@@ -438,6 +438,10 @@ class Passport {
     _dfSelected = _DF.DF1;
   }
 
+  Future<ResponseAPDU> transceiveRawUnprotected(CommandAPDU command) async {
+    return await _exec(() => _api.icc.transceiveRawUnprotected(command));
+  }
+
   Future<void> _selectDF1() async {
     // If we already have SM, assume the DF is selected from before PACE.
     if (_smActive) {
