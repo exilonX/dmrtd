@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dmrtd/extensions.dart';
-import 'package:dmrtd/internal.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
@@ -32,125 +31,13 @@ class MrtdSM extends SecureMessaging {
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
 
-// CLAUDE SUGGESTED
-  // @override
-  // CommandAPDU protect(final CommandAPDU cmd) {
-  //   _log.debug("Protecting APDU");
-  //   _log.verbose("  header=${cmd.rawHeader().hex()}");
-  //   _log.sdVerbose("  data=${cmd.data?.hex()}");
-  //   _log.verbose("  Le=${cmd.ne}");
-
-  //   // Keep ORIGINAL Le before we mutate anything
-  //   final int origNe = cmd.ne;
-
-  //   // Increment SSC should be made before encrypting data
-  //   _ssc.increment();
-  //   _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
-
-  //   final pcmd = maskCmd(cmd);
-  //   _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
-
-  //   // 3) Build data DO (DO87 or DO85)
-  //   final dataDO = generateDataDO(pcmd);
-  //   _log.verbose("Generated data DO=${dataDO.hex()}");
-
-  //   final do97 = (origNe != 0) ? SecureMessaging.do97(origNe) : Uint8List(0);
-  //   _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
-
-  //   // 5) Compute MAC input = [SSC || header_masked || dataDO || do97] padded once at end
-  //   final macInput =
-  //       Uint8List.fromList(_ssc.toBytes() + pcmd.rawHeader() + dataDO + do97);
-  //   // final paddedMacInput = ISO9797.pad(macInput, blockLen());
-
-  //   _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
-  //   final inputForMac = (cipher.type == CipherAlgorithm.AES)
-  //       ? macInput
-  //       : ISO9797.pad(macInput, blockLen());
-
-  //   _log.verbose("MAC input (padded block) =${inputForMac.hex()}");
-
-  //   // final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
-  //   // _log.verbose("Generated M=${M.hex()} size=${M.length}");
-
-  //   // final N = generateN(M: M);
-  //   // _log.verbose("Generated N=${N.hex()} size=${N.length}");
-  //   // _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
-
-  //   // 6) Calculate CC = AES‑CMAC(K<sub>MAC</sub>, paddedMacInput)
-  //   final CC = cipher.mac(inputForMac);
-  //   final cc8 = Uint8List.fromList(CC.sublist(0, 8)); // Take MSB 8 bytes
-
-  //   final do8E = SecureMessaging.do8E(cc8);
-  //   _log.verbose("Calculated CC=${CC.hex()}");
-  //   _log.verbose("Generated DO8E=${do8E.hex()}");
-  //   print("Full CMAC (16 bytes): ${CC.hex()}");
-  //   print("Truncated CMAC (8 bytes): ${cc8.hex()}");
-
-  //   // final CC = cipher.mac(N);
-  //   // final do8E = SecureMessaging.do8E(CC);
-  //   // _log.verbose("Calculated CC=${CC.hex()}");
-  //   // _log.verbose("Generated data DO8E=${do8E.hex()}");
-
-  //   pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
-  //   pcmd.ne = cmd.ne; // serialized as 0x00
-  //   return pcmd;
-  // }
-
-  // @override
-  // ResponseAPDU unprotect(ResponseAPDU rapdu) {
-  //   if (rapdu.status == StatusWord.smDataMissing ||
-  //       rapdu.status == StatusWord.smDataInvalid ||
-  //       (rapdu.data?.isEmpty ?? true)) {
-  //     //RAPDU should have data
-  //     return rapdu;
-  //   }
-
-  //   // Increment SSC should be made before decrypting data
-  //   _ssc.increment();
-
-  //   _log.debug("Unprotecting RAPDU: $rapdu");
-  //   final tvDataDO = parseDataDOFromRAPDU(rapdu);
-  //   final do99 = parseDO99FromRAPDU(rapdu, (tvDataDO?.encodedLen ?? 0));
-  //   final do8EStart = (tvDataDO?.encodedLen ?? 0) + do99.encodedLen;
-  //   final do8E = parseDO8EFromRAPDU(rapdu, do8EStart);
-  //   final K = generateK(data: rapdu.data!.sublist(0, do8EStart));
-  //   final CC = cipher.mac(K);
-
-  //   _log.verbose("Generated K=${K.hex()}");
-  //   _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
-  //   _log.verbose("APDU CC=${do8E.value.hex()}");
-  //   _log.verbose("Calculated CC=${CC.hex()}");
-  //   if (!_eq(CC, do8E.value)) {
-  //     throw SMError("Invalid MAC of response APDU");
-  //   }
-
-  //   final data = decryptDataDO(tvDataDO);
-  //   return ResponseAPDU(StatusWord.fromBytes(do99.value), data);
-  // }
-
-  Uint8List _paddedMaskedHeader(int cla, int ins, int p1, int p2) {
-    final masked4 = Uint8List.fromList(
-        [(cla | 0x0C) & 0xFF, ins & 0xFF, p1 & 0xFF, p2 & 0xFF]);
-    final out = Uint8List(16);
-    out.setRange(0, 4, masked4); // 4 bytes + 12 zero bytes
-    return out;
-  }
-
-  Uint8List _zeroPad16(Uint8List x) {
-    final r = x.length % 16;
-    if (r == 0) return x;
-    final out = Uint8List(x.length + (16 - r));
-    out.setRange(0, x.length, x);
-    return out;
-  }
-
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
     _log.debug("Protecting APDU");
     _log.verbose("  header=${cmd.rawHeader().hex()}");
     _log.sdVerbose("  data=${cmd.data?.hex()}");
     _log.verbose("  Le=${cmd.ne}");
-    final int origNe = cmd.ne;
+
     // Increment SSC should be made before encrypting data
     _ssc.increment();
     _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
@@ -162,46 +49,16 @@ class MrtdSM extends SecureMessaging {
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
-    final paddedHeader =
-        _paddedMaskedHeader(pcmd.cla, pcmd.ins, pcmd.p1, pcmd.p2);
-
-    final do97 = (origNe > 0) ? SecureMessaging.do97(origNe) : Uint8List(0);
+    final do97 = SecureMessaging.do97(pcmd.ne);
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
-    print("PaddedHeader(16): ${paddedHeader.hex()}");
-
-    final nBuilder = BytesBuilder()
-      ..add(_ssc.toBytes())
-      ..add(paddedHeader)
-      ..add(dataDO);
-    if (do97.isNotEmpty) nBuilder.add(do97);
-
-    final N = nBuilder.toBytes();
-    // print("N (unpadded): ${nUnpadded.hex()} len=${nUnpadded.length}");
-
-    // final N = ISO9797.pad(nBuilder.toBytes(), 16);
-    print("CMAC input N (no pad): ${N.hex()} len=${N.length}");
-
-    print("N (padded16): ${N.hex()} len=${N.length}");
-
-    final ccFull = cipher.mac(N); // 16 bytes
-    final do8E = SecureMessaging.do8E(ccFull.sublist(0, 8));
 
     // 5) Compute MAC input = [SSC || header_masked || dataDO || do97] padded once at end
-    // final macInput =
-    //     Uint8List.fromList(_ssc.toBytes() + pcmd.rawHeader() + dataDO + do97);
-    // final inputForMac = (cipher.type == CipherAlgorithm.AES)
-    //     ? macInput // ✅ No padding for AES-CMAC
-    //     : ISO9797.pad(macInput, blockLen()); // Only pad for DES
+    final macInput =
+        Uint8List.fromList(_ssc.toBytes() + pcmd.rawHeader() + dataDO + do97);
+    final paddedMacInput = ISO9797.pad(macInput, blockLen());
 
-    // _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
-    // _log.verbose("MAC input (padded block) =${inputForMac.hex()}");
-    print("=== MAC DEBUG ===");
-    print("SSC: ${_ssc.toBytes().hex()}");
-    print("Header: ${pcmd.rawHeader().hex()}");
-    print("DO87: ${dataDO.hex()}");
-    print("DO97: ${do97.hex()}");
-    // print("Combined: ${macInput.hex()}");
-    print("ENC key: ${(cipher as AES_SMCipher).KSenc.hex()}");
+    _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
+    _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
 
     // final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
     // _log.verbose("Generated M=${M.hex()} size=${M.length}");
@@ -211,33 +68,19 @@ class MrtdSM extends SecureMessaging {
     // _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
 
     // 6) Calculate CC = AES‑CMAC(K<sub>MAC</sub>, paddedMacInput)
-    // final CC = cipher.mac(inputForMac);
-    // final truncatedCC =
-    //     Uint8List.fromList(CC.sublist(0, 8)); // Truncate to 8 bytes
-    // _log.verbose("CC input (truncated padded block) =${CC.hex()}");
+    final CC = cipher.mac(paddedMacInput);
 
-    // final do8E = SecureMessaging.do8E(CC.sublist(0, 8));
+    final do8E = SecureMessaging.do8E(CC);
+    _log.verbose("Calculated CC=${CC.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
     // final CC = cipher.mac(N);
     // final do8E = SecureMessaging.do8E(CC);
     // _log.verbose("Calculated CC=${CC.hex()}");
     // _log.verbose("Generated data DO8E=${do8E.hex()}");
-    final protectedData = Uint8List.fromList(dataDO + do97 + do8E);
 
-    pcmd.data = protectedData;
-    pcmd.ne = 0;
-
-    // 🚨 LOG THE EXACT FINAL APDU BYTES
-    print("=== FINAL APDU DEBUG ===");
-    print("CLA: ${pcmd.cla.toRadixString(16).padLeft(2, '0')}");
-    print("INS: ${pcmd.ins.toRadixString(16).padLeft(2, '0')}");
-    print("P1:  ${pcmd.p1.toRadixString(16).padLeft(2, '0')}");
-    print("P2:  ${pcmd.p2.toRadixString(16).padLeft(2, '0')}");
-    print("Lc:  ${pcmd.data?.length.toRadixString(16).padLeft(2, '0')}");
-    print("Data: ${pcmd.data?.hex()}");
-    print("Ne:  ${pcmd.ne}");
-
+    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
+    pcmd.ne = 256; // serialized as 0x00
     return pcmd;
   }
 
@@ -329,9 +172,7 @@ class MrtdSM extends SecureMessaging {
   @visibleForTesting
   Uint8List generateK({required final Uint8List data}) {
     final upK = Uint8List.fromList(_ssc.toBytes() + data);
-    return (cipher.type == CipherAlgorithm.AES)
-        ? _zeroPad16(upK) // zero-pad for AES CMAC
-        : ISO9797.pad(upK, blockLen());
+    return ISO9797.pad(upK, blockLen());
   }
 
   @visibleForTesting
