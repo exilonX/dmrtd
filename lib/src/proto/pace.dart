@@ -1228,12 +1228,12 @@ class PACE {
         }
 
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
-        // final ssc =
-        //     SSC.anotherPACE(iccEphemeral: iccEphem, ifdEphemeral: ifdEphem);
+        final ssc =
+            SSC.anotherPACE(iccEphemeral: iccEphem, ifdEphemeral: ifdEphem);
 
-        final ssc = SSC(Uint8List(16), 128);
-        print("SSC after creation: ${ssc.toBytes().hex()}");
-        print("SSC length: ${ssc.toBytes().length}");
+        // final ssc = SSC(Uint8List(16), 128);
+        // print("SSC after creation: ${ssc.toBytes().hex()}");
+        // print("SSC length: ${ssc.toBytes().length}");
 
         // ssc.increment();
         print("SSC after increment: ${ssc.toBytes().hex()}");
