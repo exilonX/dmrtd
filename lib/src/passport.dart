@@ -140,7 +140,7 @@ class Passport {
     );
 
     // Send the command and get the raw response
-    final rawResponse = await _api.icc.transceiveApdu(protectedApdu);
+    final rawResponse = await _api.icc.transceiveRawUnprotected(protectedApdu);
 
     // Manually unprotect the response
     return sm.unprotect(rawResponse);
