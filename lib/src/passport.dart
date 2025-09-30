@@ -66,11 +66,8 @@ class Passport {
     _log.debug("Session established");
   }
 
-  Future<ResponseAPDU> verifyPinProtectedCustom({
-    required String pin,
-    required int pinRef,
-    required SecureMessaging sm, // Pass the active SM session
-  }) async {
+  Future<ResponseAPDU> verifyPinProtectedCustom(
+      {required String pin, required int pinRef}) async {
     _log.info("Building custom protected VERIFY PIN command...");
 
     // --- 1. Construct the unprotected APDU ---
@@ -89,8 +86,9 @@ class Passport {
 
     // --- 2. Manually perform Secure Messaging protection ---
     // This is where you replicate MrtdSM.protect but can make changes.
+    final sm = _api.icc.sm as MrtdSM;
     final smCipher = sm.cipher;
-    final ssc = (sm as MrtdSM).ssc;
+    final ssc = sm.ssc;
 
     // Increment SSC before use
     ssc.increment();
