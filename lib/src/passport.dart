@@ -66,81 +66,115 @@ class Passport {
     _log.debug("Session established");
   }
 
-  Future<ResponseAPDU> verifyPinProtectedCustom({
+  Future<ResponseAPDU> verifyPinCustom({
     required String pin,
     required int pinRef,
   }) async {
-    _log.info("Building custom protected VERIFY PIN command...");
+    _log.info(
+        "Building and sending a direct port of Java's loginPin method...");
 
-    // --- 1. Construct the PIN data manually padded to a full 16-byte block ---
-    final pinBytes = utf8.encode(pin);
-
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // !! THE FIX IS HERE: Pad the entire block with 0xFF !!
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    final dataToEncrypt = Uint8List(16); // AES block size
-
-    // Fill the entire 16-byte block with 0xFF first.
-    dataToEncrypt.fillRange(0, 16, 0xFF);
-
-    // Now, copy the actual PIN bytes over the beginning of the block.
-    dataToEncrypt.setRange(0, pinBytes.length, pinBytes);
-
-    _log.fine("Data to encrypt (manually FF-padded): ${dataToEncrypt.hex()}");
-    // For PIN "1234", this will be: 31 32 33 34 FF FF FF FF FF FF FF FF FF FF FF FF
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    final unprotectedApdu = CommandAPDU(
-        cla: 0x00, ins: 0x20, p1: 0x00, p2: pinRef, data: dataToEncrypt, ne: 0);
-
-    // --- 2. Manually perform Secure Messaging protection ---
+    // --- 1. Get the active SM session established by startSessionPACE ---
+    // We are assuming the K_enc, K_mac, and SSC from PACE are correct,
+    // even if the final auth token exchange was flawed.
+    if (_api.icc.sm == null) {
+      throw PassportError("Secure Messaging session is not active.");
+    }
     final sm = _api.icc.sm as MrtdSM;
     final smCipher = sm.cipher;
     final ssc = sm.ssc;
 
+    // --- 2. Manually construct the Unprotected APDU Body ---
+    // This is a direct port of the Java ApduExecutor.loginPin logic.
+    final pinBytes = utf8.encode(pin);
+    final apduData = Uint8List(12);
+
+    // Copy PIN bytes
+    apduData.setRange(0, pinBytes.length, pinBytes);
+
+    // Fill the rest with -1 (0xFF), exactly like the Java code.
+    if (pinBytes.length < 12) {
+      apduData.fillRange(pinBytes.length, 12, 0xFF);
+    }
+    _log.fine("Unprotected APDU Data (FF-padded): ${apduData.hex()}");
+
+    final unprotectedApdu = CommandAPDU(
+      cla: 0x00, // Will be masked to 0x0C
+      ins: ISO7816_INS.VERIFY, // 0x20
+      p1: 0x00,
+      p2: pinRef, // 0x03
+      data: apduData,
+      ne: 0,
+    );
+
+    // --- 3. Manually perform Secure Messaging protection ---
     ssc.increment();
-    _log.fine("Using SSC: ${ssc.toBytes().hex()}");
+    _log.fine("Using SSC for protection: ${ssc.toBytes().hex()}");
 
     final maskedHeader = unprotectedApdu.rawHeader();
-    maskedHeader[0] |= ISO7816_CLA.SM_HEADER_AUTHN;
+    maskedHeader[0] |= ISO7816_CLA.SM_HEADER_AUTHN; // 0x0C
 
-    // The data is already a full block, so no cryptographic padding is needed.
-    final encryptedData = smCipher.encrypt(dataToEncrypt, ssc: ssc);
+    // The Java code does not seem to use a secondary padding scheme (like 80 00...).
+    // It provides a 12-byte block. The encryption layer will pad this to 16 bytes.
+    // We will explicitly use ISO9797 padding to be standard-compliant first.
+    final paddedData = ISO9797.pad(unprotectedApdu.data!, sm.blockLen());
+    final encryptedData = smCipher.encrypt(paddedData, ssc: ssc);
 
-    // The rest of the SM construction is standard.
-    final do87 = SecureMessaging.do87(encryptedData,
-        dataIsPadded: false); // Set dataIsPadded to false
+    final do87 = SecureMessaging.do87(encryptedData, dataIsPadded: true);
     final do97 = SecureMessaging.do97(unprotectedApdu.ne);
 
-    final macInput = BytesBuilder();
-    macInput.add(ssc.toBytes());
-    macInput.add(maskedHeader);
-    macInput.add(do87);
-    macInput.add(do97);
+    final macInput = BytesBuilder()
+      ..add(ssc.toBytes())
+      ..add(maskedHeader)
+      ..add(do87)
+      ..add(do97);
 
     final paddedMacInput = ISO9797.pad(macInput.toBytes(), sm.blockLen());
     final cc = smCipher.mac(paddedMacInput);
     final do8e = SecureMessaging.do8E(cc);
 
-    final protectedData = BytesBuilder();
-    protectedData.add(do87);
-    protectedData.add(do97);
-    protectedData.add(do8e);
+    final protectedData = (BytesBuilder()
+          ..add(do87)
+          ..add(do97)
+          ..add(do8e))
+        .toBytes(); // This time, the .toBytes() is here! My apologies for the previous error.
 
-    // --- 3. Construct and send the final protected APDU ---
     final protectedApdu = CommandAPDU(
       cla: maskedHeader[0],
       ins: maskedHeader[1],
       p1: maskedHeader[2],
       p2: maskedHeader[3],
-      data: protectedData.toBytes(),
+      data: protectedData,
       ne: 256,
     );
 
+    // --- 4. Send the raw APDU and process the response ---
+    _log.fine("Sending fully constructed protected APDU...");
     final rawResponse = await _api.icc.transceiveRawUnprotected(protectedApdu);
 
-    // Unprotect and return the final response
-    return sm.unprotect(rawResponse);
+    if (rawResponse.status.isError()) {
+      throw PassportError("Card rejected the protected VERIFY command",
+          code: rawResponse.status);
+    }
+
+    _log.fine("Received raw protected response. Unprotecting...");
+    final unprotectedResponse = sm.unprotect(rawResponse);
+
+    // Check the logical status from inside the protected response
+    if (unprotectedResponse.status.isError()) {
+      if (unprotectedResponse.status.sw1 ==
+          StatusWord.authenticationFailed.sw1) {
+        final retries = unprotectedResponse.status.sw2 & 0x0F;
+        if (retries == 0) {
+          throw PinPermanentlyBlockedException();
+        } else {
+          throw PinVerificationFailedException(retries);
+        }
+      }
+      throw PassportError("PIN verification failed logically",
+          code: unprotectedResponse.status);
+    }
+
+    return unprotectedResponse;
   }
 
   void clearSession() {
