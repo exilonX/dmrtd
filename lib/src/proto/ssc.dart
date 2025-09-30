@@ -65,6 +65,13 @@ class SSC {
     return SSC(sscBytes, 128); // AES SSC bit size is always 128 bits (16 bytes)
   }
 
+  factory SSC.forRomanianEID() {
+    final sscBytes =
+        Uint8List(16); // Creates a 16-byte array, initialized to all zeros.
+    sscBytes[15] = 1; // Set the last byte to 1, making the counter start at 1.
+    return SSC(sscBytes, 128);
+  }
+
   static SSC anotherPACE({
     required Uint8List iccEphemeral,
     required Uint8List ifdEphemeral,

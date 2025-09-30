@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/src/lds/asn1ObjectIdentifiers.dart';
 import 'package:logging/logging.dart';
+import 'package:pointycastle/export.dart';
 import 'ssc.dart';
 import 'iso7816/smcipher.dart';
 import '../crypto/aes.dart';
@@ -34,32 +35,56 @@ class AES_SMCipher implements SMCipher {
     //IV = E(KSenc, SCC)
     _log.sdDebug(
         "Encrypting IV with KSenc: ${KSenc.hex()}, ssc: ${ssc.toBytes().hex()}");
-    Uint8List iv = cipher.encrypt(
-        data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
+    // 2. Create a temporary AES/ECB cipher with the session key (KSenc).
+    final ecbCipher = ECBBlockCipher(AESEngine())
+      ..init(true, KeyParameter(KSenc));
+    // 3. Encrypt the SSC block to produce the IV.
+    final iv = Uint8List(16);
+    ecbCipher.processBlock(ssc.toBytes(), 0, iv, 0);
+    _log.fine("Derived IV for encryption: ${iv.hex()}");
 
-    _log.sdVerbose("Encrypted IV: ${iv.hex()}");
+    // 4. Now, encrypt the actual data using AES/CBC with the IV we just made.
+    final cbcCipher = CBCBlockCipher(AESEngine())
+      ..init(true, ParametersWithIV(KeyParameter(KSenc), iv));
 
-    _log.sdDebug("Encrypting data with KSenc: ${KSenc.hex()}, iv: ${iv.hex()}");
-    Uint8List encrypted = cipher.encrypt(data: data, key: KSenc, iv: iv);
+    final encrypted = Uint8List(data.length);
+    var offset = 0;
+    while (offset < data.length) {
+      offset += cbcCipher.processBlock(data, offset, encrypted, offset);
+    }
 
-    _log.sdVerbose("Encrypted data: ${encrypted.hex()}");
     return encrypted;
   }
 
   @override
   Uint8List decrypt(Uint8List data, {SSC? ssc}) {
-    _log.debug(
-        "decrypt: data size: ${data.length}, ssc: ${ssc?.toBytes().hex()}");
-    _log.sdVerbose("decrypt: data: ${data}, KSenc: ${KSenc.hex()}");
     if (ssc == null)
-      throw Exception("PACE_SMCipher_AES.decrypt: SSC should not be null");
+      throw Exception("AES_SMCipher.decrypt: SSC should not be null");
 
-    //IV = E(KSenc, SCC)
-    Uint8List iv = cipher.encrypt(
-        data: ssc.toBytes(), key: KSenc, mode: BLOCK_CIPHER_MODE.ECB);
-    _log.sdVerbose("IV: ${iv.hex()}");
-    Uint8List decrypted = cipher.decrypt(data: data, key: KSenc, iv: iv);
-    _log.sdVerbose("Decrypted data: ${decrypted.hex()}");
+    // --- REPLICATE THE SAME LOGIC FOR DECRYPTION ---
+
+    // 1. Get the current 16-byte SSC value.
+    final sscBytes = ssc.toBytes();
+    _log.fine("Decrypting with SSC: ${sscBytes.hex()}");
+
+    // 2. Create the temporary AES/ECB cipher.
+    final ecbCipher = ECBBlockCipher(AESEngine())
+      ..init(true, KeyParameter(KSenc));
+
+    // 3. Encrypt the SSC block to re-create the IV that was used by the sender.
+    final iv = Uint8List(16);
+    ecbCipher.processBlock(sscBytes, 0, iv, 0);
+    _log.fine("Derived IV for decryption: ${iv.hex()}");
+
+    // 4. Decrypt the data using AES/CBC with the re-created IV.
+    final cbcCipher = CBCBlockCipher(AESEngine())
+      ..init(false, ParametersWithIV(KeyParameter(KSenc), iv));
+
+    final decrypted = Uint8List(data.length);
+    var offset = 0;
+    while (offset < data.length) {
+      offset += cbcCipher.processBlock(data, offset, decrypted, offset);
+    }
     return decrypted;
   }
 
