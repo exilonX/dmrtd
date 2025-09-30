@@ -64,6 +64,12 @@ class Passport {
     _log.debug("Session established");
   }
 
+  void clearSession() {
+    _log.debug("Clearing SM session");
+    _api.icc.sm = null;
+    _dfSelected = _DF.None; // Reset the selected DF state too
+  }
+
   /// Executes Active Authentication command with [challenge] and
   /// returns signature bytes. The [challenge] should be 8 bytes long.
   /// Session with passport should be already established before calling this function.
