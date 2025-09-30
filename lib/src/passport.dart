@@ -66,52 +66,52 @@ class Passport {
     _log.debug("Session established");
   }
 
-  Future<ResponseAPDU> verifyPinProtectedCustom(
-      {required String pin, required int pinRef}) async {
+  Future<ResponseAPDU> verifyPinProtectedCustom({
+    required String pin,
+    required int pinRef,
+  }) async {
     _log.info("Building custom protected VERIFY PIN command...");
 
-    // --- 1. Construct the unprotected APDU ---
+    // --- 1. Construct the PIN data manually padded to a full 16-byte block ---
     final pinBytes = utf8.encode(pin);
-    final paddedPin = Uint8List(12)..fillRange(0, 12, 0xFF);
-    paddedPin.setRange(0, pinBytes.length, pinBytes);
+
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // !! THE FIX IS HERE: Pad the entire block with 0xFF !!
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    final dataToEncrypt = Uint8List(16); // AES block size
+
+    // Fill the entire 16-byte block with 0xFF first.
+    dataToEncrypt.fillRange(0, 16, 0xFF);
+
+    // Now, copy the actual PIN bytes over the beginning of the block.
+    dataToEncrypt.setRange(0, pinBytes.length, pinBytes);
+
+    _log.fine("Data to encrypt (manually FF-padded): ${dataToEncrypt.hex()}");
+    // For PIN "1234", this will be: 31 32 33 34 FF FF FF FF FF FF FF FF FF FF FF FF
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     final unprotectedApdu = CommandAPDU(
-      cla: 0x00, // Will be masked to 0x0C later
-      ins: 0x20, // VERIFY
-      p1: 0x00,
-      p2: pinRef,
-      data: paddedPin,
-      ne: 0,
-    );
+        cla: 0x00, ins: 0x20, p1: 0x00, p2: pinRef, data: dataToEncrypt, ne: 0);
 
     // --- 2. Manually perform Secure Messaging protection ---
-    // This is where you replicate MrtdSM.protect but can make changes.
     final sm = _api.icc.sm as MrtdSM;
     final smCipher = sm.cipher;
     final ssc = sm.ssc;
 
-    // Increment SSC before use
     ssc.increment();
     _log.fine("Using SSC: ${ssc.toBytes().hex()}");
 
-    // Mask CLA
     final maskedHeader = unprotectedApdu.rawHeader();
-    maskedHeader[0] |= ISO7816_CLA.SM_HEADER_AUTHN; // 0x00 -> 0x0C
+    maskedHeader[0] |= ISO7816_CLA.SM_HEADER_AUTHN;
 
-    // Encrypt data with padding
-    // final paddedData = ISO9797.pad(unprotectedApdu.data!, sm.blockLen());
-    final dataToEncrypt = Uint8List(16); // AES block size is 16
-    dataToEncrypt.setRange(0, 12, unprotectedApdu.data!);
-
+    // The data is already a full block, so no cryptographic padding is needed.
     final encryptedData = smCipher.encrypt(dataToEncrypt, ssc: ssc);
 
-    // Build DO'87'
-    final do87 = SecureMessaging.do87(encryptedData, dataIsPadded: true);
-
-    // Build DO'97' (Expected Length)
+    // The rest of the SM construction is standard.
+    final do87 = SecureMessaging.do87(encryptedData,
+        dataIsPadded: false); // Set dataIsPadded to false
     final do97 = SecureMessaging.do97(unprotectedApdu.ne);
 
-    // Concatenate parts for MAC calculation
     final macInput = BytesBuilder();
     macInput.add(ssc.toBytes());
     macInput.add(maskedHeader);
@@ -119,14 +119,9 @@ class Passport {
     macInput.add(do97);
 
     final paddedMacInput = ISO9797.pad(macInput.toBytes(), sm.blockLen());
-
-    // Calculate MAC (CC)
     final cc = smCipher.mac(paddedMacInput);
-
-    // Build DO'8E'
     final do8e = SecureMessaging.do8E(cc);
 
-    // Assemble the final protected data field
     final protectedData = BytesBuilder();
     protectedData.add(do87);
     protectedData.add(do97);
@@ -134,18 +129,17 @@ class Passport {
 
     // --- 3. Construct and send the final protected APDU ---
     final protectedApdu = CommandAPDU(
-      cla: maskedHeader[0], // 0x0C
-      ins: maskedHeader[1], // 0x20
-      p1: maskedHeader[2], // 0x00
-      p2: maskedHeader[3], // 0x03
+      cla: maskedHeader[0],
+      ins: maskedHeader[1],
+      p1: maskedHeader[2],
+      p2: maskedHeader[3],
       data: protectedData.toBytes(),
-      ne: 256, // For SM, Ne is always 256 (encoded as 0x00)
+      ne: 256,
     );
 
-    // Send the command and get the raw response
     final rawResponse = await _api.icc.transceiveRawUnprotected(protectedApdu);
 
-    // Manually unprotect the response
+    // Unprotect and return the final response
     return sm.unprotect(rawResponse);
   }
 
