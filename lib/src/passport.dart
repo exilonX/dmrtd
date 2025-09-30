@@ -99,8 +99,11 @@ class Passport {
     maskedHeader[0] |= ISO7816_CLA.SM_HEADER_AUTHN; // 0x00 -> 0x0C
 
     // Encrypt data with padding
-    final paddedData = ISO9797.pad(unprotectedApdu.data!, sm.blockLen());
-    final encryptedData = smCipher.encrypt(paddedData, ssc: ssc);
+    // final paddedData = ISO9797.pad(unprotectedApdu.data!, sm.blockLen());
+    final dataToEncrypt = Uint8List(16); // AES block size is 16
+    dataToEncrypt.setRange(0, 12, unprotectedApdu.data!);
+
+    final encryptedData = smCipher.encrypt(dataToEncrypt, ssc: ssc);
 
     // Build DO'87'
     final do87 = SecureMessaging.do87(encryptedData, dataIsPadded: true);
