@@ -171,6 +171,36 @@ class ICC {
         p1: 0x00,
         p2: 0x00,
         data: data));
+
+    if (rapdu.status.sw1 == StatusWord.sw1SuccessWithRemainingBytes) {
+      _log.warning(
+          "Warning: GENERAL AUTHENTICATE - step 4' returned SW1=0x61, indicating more data available. This is unexpected.");
+      // In practice, this should not happen for step 4', but if it does,
+      final bytesAvailable = rapdu.status.sw2;
+      _log.debug(
+          "PACE step 4: Got 61${bytesAvailable.toRadixString(16).padLeft(2, '0')} - fetching $bytesAvailable bytes with GET RESPONSE");
+
+      // Send GET RESPONSE to retrieve the data
+      final getResponseCmd = CommandAPDU(
+          cla: 0x00, // Standard class
+          ins: 0xC0, // GET RESPONSE instruction
+          p1: 0x00,
+          p2: 0x00,
+          ne: bytesAvailable // Request exactly the number of bytes indicated
+          );
+
+      final getResponseRapdu = await _transceive(getResponseCmd);
+
+      if (getResponseRapdu.status != StatusWord.success) {
+        throw ICCError("GET RESPONSE after PACE step 4 failed",
+            getResponseRapdu.status, getResponseRapdu.data);
+      }
+
+      _log.debug(
+          "PACE step 4: Successfully retrieved ${getResponseRapdu.data?.length ?? 0} bytes via GET RESPONSE");
+      return getResponseRapdu.data;
+    }
+
     if (rapdu.status != StatusWord.success) {
       throw ICCError("General authentication template (step 4) failed",
           rapdu.status, rapdu.data);
