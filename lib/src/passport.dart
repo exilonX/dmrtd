@@ -1,9 +1,11 @@
 // Created by Crt Vavros, copyright © 2022 ZeroPass. All rights reserved.
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dmrtd/dmrtd.dart';
 import 'package:dmrtd/extensions.dart';
 import 'package:dmrtd/internal.dart';
 import 'package:dmrtd/src/proto/access_key.dart';
+import 'package:dmrtd/src/proto/iso7816/iso7816.dart';
 import 'package:logging/logging.dart';
 
 import 'proto/iso7816/icc.dart';
@@ -62,6 +64,88 @@ class Passport {
     _log.debug("Starting session");
     await _exec(() => _api.initSessionViaPACE(accessKey, efCardAccess));
     _log.debug("Session established");
+  }
+
+  Future<ResponseAPDU> verifyPinProtectedCustom({
+    required String pin,
+    required int pinRef,
+    required SecureMessaging sm, // Pass the active SM session
+  }) async {
+    _log.info("Building custom protected VERIFY PIN command...");
+
+    // --- 1. Construct the unprotected APDU ---
+    final pinBytes = utf8.encode(pin);
+    final paddedPin = Uint8List(12)..fillRange(0, 12, 0xFF);
+    paddedPin.setRange(0, pinBytes.length, pinBytes);
+
+    final unprotectedApdu = CommandAPDU(
+      cla: 0x00, // Will be masked to 0x0C later
+      ins: 0x20, // VERIFY
+      p1: 0x00,
+      p2: pinRef,
+      data: paddedPin,
+      ne: 0,
+    );
+
+    // --- 2. Manually perform Secure Messaging protection ---
+    // This is where you replicate MrtdSM.protect but can make changes.
+    final smCipher = sm.cipher;
+    final ssc = (sm as MrtdSM).ssc;
+
+    // Increment SSC before use
+    ssc.increment();
+    _log.fine("Using SSC: ${ssc.toBytes().hex()}");
+
+    // Mask CLA
+    final maskedHeader = unprotectedApdu.rawHeader();
+    maskedHeader[0] |= ISO7816_CLA.SM_HEADER_AUTHN; // 0x00 -> 0x0C
+
+    // Encrypt data with padding
+    final paddedData = ISO9797.pad(unprotectedApdu.data!, sm.blockLen());
+    final encryptedData = smCipher.encrypt(paddedData, ssc: ssc);
+
+    // Build DO'87'
+    final do87 = SecureMessaging.do87(encryptedData, dataIsPadded: true);
+
+    // Build DO'97' (Expected Length)
+    final do97 = SecureMessaging.do97(unprotectedApdu.ne);
+
+    // Concatenate parts for MAC calculation
+    final macInput = BytesBuilder();
+    macInput.add(ssc.toBytes());
+    macInput.add(maskedHeader);
+    macInput.add(do87);
+    macInput.add(do97);
+
+    final paddedMacInput = ISO9797.pad(macInput.toBytes(), sm.blockLen());
+
+    // Calculate MAC (CC)
+    final cc = smCipher.mac(paddedMacInput);
+
+    // Build DO'8E'
+    final do8e = SecureMessaging.do8E(cc);
+
+    // Assemble the final protected data field
+    final protectedData = BytesBuilder();
+    protectedData.add(do87);
+    protectedData.add(do97);
+    protectedData.add(do8e);
+
+    // --- 3. Construct and send the final protected APDU ---
+    final protectedApdu = CommandAPDU(
+      cla: maskedHeader[0], // 0x0C
+      ins: maskedHeader[1], // 0x20
+      p1: maskedHeader[2], // 0x00
+      p2: maskedHeader[3], // 0x03
+      data: protectedData.toBytes(),
+      ne: 256, // For SM, Ne is always 256 (encoded as 0x00)
+    );
+
+    // Send the command and get the raw response
+    final rawResponse = await _api.icc.transceiveApdu(protectedApdu);
+
+    // Manually unprotect the response
+    return sm.unprotect(rawResponse);
   }
 
   void clearSession() {
