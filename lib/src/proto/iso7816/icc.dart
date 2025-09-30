@@ -196,6 +196,13 @@ class ICC {
             getResponseRapdu.status, getResponseRapdu.data);
       }
 
+      // ADD THIS LOGGING
+      _log.severe("=== GET RESPONSE DATA ===");
+      _log.severe(
+          "Raw data from GET RESPONSE: ${getResponseRapdu.data?.hex()}");
+      _log.severe("Data length: ${getResponseRapdu.data?.length} bytes");
+      _log.severe("=========================");
+
       _log.debug(
           "PACE step 4: Successfully retrieved ${getResponseRapdu.data?.length ?? 0} bytes via GET RESPONSE");
       return getResponseRapdu.data;
