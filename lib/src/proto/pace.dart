@@ -1267,6 +1267,17 @@ class PACE {
         icc.sm = MrtdSM(smCipher, ssc);
 
         _log.debug("... SM (with ECDH) session is set up.");
+
+        // ADD THIS VERIFICATION
+        _log.severe("=== SM SESSION VERIFICATION ===");
+        _log.severe("SM is set: ${icc.sm != null}");
+        if (icc.sm != null) {
+          final sm = icc.sm as MrtdSM;
+          _log.severe("SSC value: ${sm.ssc.toBytes().hex()}");
+          _log.severe("Cipher type: ${sm.cipher.runtimeType}");
+          _log.severe("Block length: ${sm.blockLen()}");
+        }
+        _log.severe("================================");
       } on Exception catch (e) {
         _log.error("PACE <ECDH> (4); Failed: $e");
         throw PACEError("PACE <ECDH> (4); Failed: $e");
