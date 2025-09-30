@@ -1395,7 +1395,7 @@ class PACE {
           Uint8List calcInputDataTerminalforCheck =
               PACE.generateEncodingInputData(
                   cryptographicMechanism: paceProtocol,
-                  publicKeyToSign: ephemeralPublicICCenvelope);
+                  publicKeyToSign: domainParameter.getPubKeyEphemeral());
 
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
