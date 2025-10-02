@@ -519,6 +519,21 @@ class Passport {
     await _selectDF1();
   }
 
+// In Passport class
+  Future<void> selectEMrtdApplicationUnprotected() async {
+    // Unprotected SELECT of LDS AID
+    await _exec(() => _api.icc.transceiveRawUnprotected(
+          CommandAPDU.fromHex("00A4040007A0000002471001"),
+        ));
+    _dfSelected = _DF.DF1; // mark DF1 so readEfDG2() won’t try to SELECT again
+  }
+
+  /// Read DG2 assuming DF1 is already selected; do NOT re-select.
+  Future<EfDG2> readEfDG2OnCurrentDf1() async {
+    _log.debug("Reading EF.DG2 (no DF1 reselect)");
+    return EfDG2.fromBytes(await _exec(() => _api.readFileBySFI(EfDG2.SFI)));
+  }
+
   /// Selects the eMRTD application, establishes a BAC session,
   /// then sends the VERIFY APDU in one shot.
   Future<void> startSessionAndVerifyPin({
