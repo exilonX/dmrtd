@@ -515,6 +515,10 @@ class Passport {
     }
   }
 
+  Future<void> selectEMrtdApplication() async {
+    await _selectDF1();
+  }
+
   /// Selects the eMRTD application, establishes a BAC session,
   /// then sends the VERIFY APDU in one shot.
   Future<void> startSessionAndVerifyPin({
