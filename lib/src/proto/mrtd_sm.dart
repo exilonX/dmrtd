@@ -39,57 +39,101 @@ class MrtdSM extends SecureMessaging {
     _log.sdVerbose("  data=${cmd.data?.hex()}");
     _log.verbose("  Le=${cmd.ne}");
 
-    // 1) Increment SSC first
+    // 1) Increment SSC first (PACE/AES: SSC starts at 0…0 and increments per C-APDU)
     _ssc.increment();
-    _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
+    final sscBytes = _ssc.toBytes();
+    _log.verbose("  SSC incremented to: ${sscBytes.hex()}");
 
-    // 2) Mask header (set SM bit), but don't touch P1/P2
+    // 2) Mask the header (set SM bit in CLA), do not touch INS/P1/P2
     final pcmd = maskCmd(cmd);
-    _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
+    final headerForMac = pcmd.rawHeader(); // snapshot for MAC + sanity check
+    _log.verbose("masked APDU header=${headerForMac.hex()}");
 
-    // 3) This SELECT AID returns FCI, so we MUST include DO97(00)
-    final bool returnsData = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
-        pcmd.p1 == ISO97816_SelectFileP1.byDFName);
+    // 3) Decide command flavor
+    final bool isSelectByDfName = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
+        pcmd.p1 == ISO97816_SelectFileP1.byDFName); // A4/04
 
-    // 4) Data DO: SELECT AID → DO85 (authenticated, not encrypted)
-    final dataDO = generateDataDO(pcmd);
-    _log.verbose("Generated data DO=${dataDO.hex()}");
+    // 4) Build DO for command data
+    //    PACE + AES: for SELECT by DF name, many eID PICCs require ENCRYPTED data (DO87).
+    //    Use AES-CBC with IV=0x00..00 and ISO/IEC 9797-1 M2 padding. Prefix 0x01 before ciphertext in DO87 value.
+    Uint8List doData; // DO85 or DO87 (we'll build 87 here for SELECT)
+    if (isSelectByDfName) {
+      final Uint8List body = pcmd.data ?? Uint8List(0);
+      // pad plaintext to block size (ISO9797-1 Method 2)
+      final Uint8List padded = ISO9797.pad(body, blockLen());
+      // encrypt with zero IV (CBC)
+      final Uint8List zeroIV = Uint8List(blockLen());
+      final Uint8List ct = cipher.encrypt(padded, iv: zeroIV);
 
-    // 5) DO97 for “returns data” commands
-    final Uint8List do97 =
-        returnsData ? SecureMessaging.do97(256) : Uint8List(0);
+      // DO87 = 87 | L | ( 0x01 || CIPHERTEXT )
+      final Uint8List do87Val = Uint8List.fromList([0x01, ...ct]);
+      doData = SecureMessaging.tlv(0x87, do87Val);
+      _log.verbose("Generated DO87 (enc)=${doData.hex()}");
+    } else {
+      // For other commands:
+      //  - if there is outgoing data, encrypt it as DO87 the same way
+      //  - if there is no data, no DO85/DO87 is present
+      if ((pcmd.data?.isNotEmpty ?? false)) {
+        final Uint8List body = pcmd.data!;
+        final Uint8List padded = ISO9797.pad(body, blockLen());
+        final Uint8List zeroIV = Uint8List(blockLen());
+        final Uint8List ct = cipher.encrypt(padded, iv: zeroIV);
+        final Uint8List do87Val = Uint8List.fromList([0x01, ...ct]);
+        doData = SecureMessaging.tlv(0x87, do87Val);
+        _log.verbose("Generated DO87 (enc)=${doData.hex()}");
+      } else {
+        doData = Uint8List(0);
+        _log.verbose("No data DO present");
+      }
+    }
+
+    // 5) Build DO97 (expected response length)
+    //    For SELECT by DF name we *do* expect FCI → include DO97(00) (variable length).
+    //    For other commands: if Le==0 and you still expect data, you can also include 970100.
+    Uint8List do97;
+    if (isSelectByDfName) {
+      do97 = SecureMessaging.do97(256); // 970100
+    } else {
+      // Use caller's Le if >0, else omit; many stacks are picky
+      if (pcmd.ne > 0) {
+        // NB: SecureMessaging.do97() should encode 1-byte Le correctly (0x00 for 256)
+        do97 = SecureMessaging.do97(pcmd.ne);
+      } else {
+        do97 = Uint8List(0);
+      }
+    }
     _log.verbose("Generated DO97=${do97.hex()}, size=${do97.length}");
 
-    // 6) Snapshot header for MAC
-    final headerForMac = pcmd.rawHeader();
-
-    // -------- ONE-TIME SANITY LOGS (put right here) --------
-    _log.verbose("SSC'         = ${_ssc.toBytes().hex()}");
-    _log.verbose("Hdr (masked) = ${headerForMac.hex()}");
-    _log.verbose("DO85/DO87    = ${dataDO.hex()}");
-    _log.verbose("DO97         = ${do97.hex()}");
-    // Expect len 32 for SELECT AID: 16(SSC)+4(hdr)+9(DO85)+3(DO97)=32
-    final macInput = Uint8List.fromList([
-      ..._ssc.toBytes(),
+    // 6) CMAC input: SSC' || CLA' INS P1 P2 || [DO87/DO85] || [DO97]
+    //    DO NOT pad here; CMAC implementation handles padding internally.
+    final Uint8List macInput = Uint8List.fromList([
+      ...sscBytes,
       ...headerForMac,
-      ...dataDO,
+      ...doData,
       ...do97,
     ]);
-    _log.verbose("CMAC input   = ${macInput.hex()} (len=${macInput.length})");
-    // -------------------------------------------------------
 
-    // 7) CMAC over raw bytes (CMAC handles padding internally)
-    final fullCC = cipher.mac(macInput);
-    final cc8 = fullCC.sublist(0, 8);
-    final do8E = SecureMessaging.do8E(cc8);
+    // One-shot sanity logs (keep them, they help a ton)
+    _log.verbose("SSC'         = ${sscBytes.hex()}");
+    _log.verbose("Hdr (masked) = ${headerForMac.hex()}");
+    _log.verbose("DO85/DO87    = ${doData.hex()}");
+    _log.verbose("DO97         = ${do97.hex()}");
+    _log.verbose("CMAC input   = ${macInput.hex()} (len=${macInput.length})");
+
+    // 7) Compute CC = AES-CMAC(macInput); use first 8 bytes in DO8E
+    final Uint8List fullCC = cipher.mac(macInput); // 16 bytes
+    final Uint8List cc8 = fullCC.sublist(0, 8); // truncate
+    final Uint8List do8E = SecureMessaging.do8E(cc8);
 
     _log.verbose("Calculated CC (full)     =${fullCC.hex()}");
     _log.verbose("Calculated CC (8 bytes)  =${cc8.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
-    // 8) Serialize: DO85/DO87 || [DO97] || DO8E; no outer Le
-    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
-    pcmd.ne = 0;
+    // 8) Serialize protected APDU:
+    //    data' = [DO87 or DO85] || [DO97] || DO8E
+    //    outer Le (Ne) MUST be zero/omitted under SM
+    pcmd.data = Uint8List.fromList(doData + do97 + do8E);
+    pcmd.ne = 0; // no outer Le — avoids case-4 ambiguity
 
     // 9) Paranoia: header must not change after MAC
     assert(const ListEquality().equals(headerForMac, pcmd.rawHeader()),
