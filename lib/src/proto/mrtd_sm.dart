@@ -46,11 +46,15 @@ class MrtdSM extends SecureMessaging {
     final pcmd = maskCmd(cmd);
     _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
 
+    final bool isSelectByDfName = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
+        pcmd.p1 == ISO97816_SelectFileP1.byDFName); // 0xA4 / 0x04
+
     // 3) Build data DO (DO87 or DO85)
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
-    final do97 = SecureMessaging.do97(pcmd.ne);
+    final Uint8List do97 =
+        isSelectByDfName ? Uint8List(0) : SecureMessaging.do97(pcmd.ne);
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
     // 5) Compute MAC input = [SSC || header_masked || dataDO || do97] padded once at end
@@ -79,6 +83,13 @@ class MrtdSM extends SecureMessaging {
     // final do8E = SecureMessaging.do8E(CC);
     // _log.verbose("Calculated CC=${CC.hex()}");
     // _log.verbose("Generated data DO8E=${do8E.hex()}");
+
+    if (isSelectByDfName) {
+      // Only DO85 + DO8E, and **no** Le in the APDU
+      pcmd.data = Uint8List.fromList(dataDO + do8E);
+      pcmd.ne = 0; // ensure your serializer does NOT append an Le
+      return pcmd;
+    }
 
     pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
     pcmd.ne = 256; // serialized as 0x00
