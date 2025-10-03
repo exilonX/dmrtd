@@ -88,6 +88,7 @@ class MrtdSM extends SecureMessaging {
       // Only DO85 + DO8E, and **no** Le in the APDU
       pcmd.data = Uint8List.fromList(dataDO + do8E);
       pcmd.ne = 0; // ensure your serializer does NOT append an Le
+      pcmd.p2 = 0x00;
       return pcmd;
     }
 
