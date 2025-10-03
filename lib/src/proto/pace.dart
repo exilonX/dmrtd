@@ -1254,8 +1254,6 @@ class PACE {
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
         final ssc = SSC.forRomanianEID();
 
-        ssc.increment(); // increment before first use
-
         print("SSC after increment: ${ssc.toBytes().hex()}");
 
         // and finally plug it into your SM layer
