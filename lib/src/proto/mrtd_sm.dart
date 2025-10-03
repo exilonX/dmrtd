@@ -66,14 +66,15 @@ class MrtdSM extends SecureMessaging {
     final macInput =
         Uint8List.fromList(_ssc.toBytes() + headerForMac + dataDO + do97);
     final paddedMacInput = ISO9797.pad(macInput, blockLen());
-
     _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
     _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
 
     final CC = cipher.mac(paddedMacInput);
-    final do8E = SecureMessaging.do8E(CC);
+    final cc8 = CC.sublist(0, 8);
 
-    _log.verbose("Calculated CC=${CC.hex()}");
+    final do8E = SecureMessaging.do8E(cc8);
+
+    _log.verbose("Calculated CC=${cc8.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
     if (isSelectByDfName) {
@@ -111,12 +112,13 @@ class MrtdSM extends SecureMessaging {
     final do8E = parseDO8EFromRAPDU(rapdu, do8EStart);
     final K = generateK(data: rapdu.data!.sublist(0, do8EStart));
     final CC = cipher.mac(K);
+    final cc8 = CC.sublist(0, 8);
 
     _log.verbose("Generated K=${K.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
     _log.verbose("APDU CC=${do8E.value.hex()}");
     _log.verbose("Calculated CC=${CC.hex()}");
-    if (!_eq(CC, do8E.value)) {
+    if (!_eq(cc8, do8E.value)) {
       throw SMError("Invalid MAC of response APDU");
     }
 
