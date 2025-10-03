@@ -229,7 +229,6 @@ class Passport {
       // same data in hex format: 31 14 30 12 6 a 4 0 7f 0 7 2 2 4 2 2   2 1 2   2 1 c
       return EfCardAccess.fromBytes(data);
     } else {
-      await _selectMF();
       // read the raw file
       final raw = await _exec(() => _api.readFileBySFI(EfCardAccess.SFI));
 
