@@ -31,7 +31,6 @@ class MrtdSM extends SecureMessaging {
   SSC get ssc => _ssc;
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
-
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
     _log.debug("Protecting APDU");
@@ -39,68 +38,59 @@ class MrtdSM extends SecureMessaging {
     _log.sdVerbose("  data=${cmd.data?.hex()}");
     _log.verbose("  Le=${cmd.ne}");
 
+    // 1) Increment SSC first
     _ssc.increment();
     _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
 
+    // 2) Mask header (set SM bit), but don't touch P1/P2
     final pcmd = maskCmd(cmd);
     _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
 
-    final bool isSelectByDfName = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
-        pcmd.p1 == ISO97816_SelectFileP1.byDFName); // A4/04
+    // 3) This SELECT AID returns FCI, so we MUST include DO97(00)
+    final bool returnsData = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
+        pcmd.p1 == ISO97816_SelectFileP1.byDFName);
 
-    // Decide once, use consistently in DO97 and serialization.
-    // For SELECT by DF name → no DO97, no outer Le.
-    // For others → DO97 carries Le=0x00 (variable length), outer Le omitted.
-    final int desiredNe = isSelectByDfName ? 0 : 256;
-
-    // Build DO85/DO87 (SELECT by DF name uses DO85, not encrypted)
+    // 4) Data DO: SELECT AID → DO85 (authenticated, not encrypted)
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
+    // 5) DO97 for “returns data” commands
     final Uint8List do97 =
-        isSelectByDfName ? Uint8List(0) : SecureMessaging.do97(desiredNe);
-    _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
+        returnsData ? SecureMessaging.do97(256) : Uint8List(0);
+    _log.verbose("Generated DO97=${do97.hex()}, size=${do97.length}");
 
-    // MAC over SSC || masked header || dataDO || do97
-    // snapshot the header BEFORE any changes
+    // 6) Snapshot header for MAC
     final headerForMac = pcmd.rawHeader();
 
-// Build CMAC input = SSC' || CLA'INS P1 P2 || DO85/DO87 || [DO97]
+    // -------- ONE-TIME SANITY LOGS (put right here) --------
+    _log.verbose("SSC'         = ${_ssc.toBytes().hex()}");
+    _log.verbose("Hdr (masked) = ${headerForMac.hex()}");
+    _log.verbose("DO85/DO87    = ${dataDO.hex()}");
+    _log.verbose("DO97         = ${do97.hex()}");
+    // Expect len 32 for SELECT AID: 16(SSC)+4(hdr)+9(DO85)+3(DO97)=32
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
       ...headerForMac,
       ...dataDO,
       ...do97,
     ]);
+    _log.verbose("CMAC input   = ${macInput.hex()} (len=${macInput.length})");
+    // -------------------------------------------------------
 
-    // 6) Calculate CC over N and use the first 8 bytes in DO'8E'
-    final fullCC = cipher.mac(macInput); // 16-byte AES-CMAC
-    final cc8 = fullCC.sublist(0, 8); // truncate to 8 bytes for DO'8E'
+    // 7) CMAC over raw bytes (CMAC handles padding internally)
+    final fullCC = cipher.mac(macInput);
+    final cc8 = fullCC.sublist(0, 8);
     final do8E = SecureMessaging.do8E(cc8);
-
-    // final macInput =
-    //     Uint8List.fromList(_ssc.toBytes() + headerForMac + dataDO + do97);
-    // final paddedMacInput = ISO9797.pad(macInput, blockLen());
-    // _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
-    // _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
-    // final CC = cipher.mac(paddedMacInput);
-    // final cc8 = CC.sublist(0, 8);
-    // final do8E = SecureMessaging.do8E(cc8);
 
     _log.verbose("Calculated CC (full)     =${fullCC.hex()}");
     _log.verbose("Calculated CC (8 bytes)  =${cc8.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
-    if (isSelectByDfName) {
-      pcmd.data = Uint8List.fromList(dataDO + do8E);
-      pcmd.ne = 0; // no outer Le
-      // DO NOT TOUCH P2 — keep caller’s 0x0C
-    } else {
-      pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
-      pcmd.ne = 0; // rely on DO97 only; avoids case-4 ambiguity
-    }
+    // 8) Serialize: DO85/DO87 || [DO97] || DO8E; no outer Le
+    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
+    pcmd.ne = 0;
 
-    // Belt & suspenders: make sure nothing touched the header after MAC
+    // 9) Paranoia: header must not change after MAC
     assert(const ListEquality().equals(headerForMac, pcmd.rawHeader()),
         "SM header changed after MAC");
 
