@@ -148,12 +148,21 @@ class MrtdSM extends SecureMessaging {
   Uint8List generateDataDO(final CommandAPDU cmd) {
     var dataDO = Uint8List(0);
     if (cmd.data != null && cmd.data!.isNotEmpty) {
-      final edata = cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()),
-          ssc: _ssc); // SSC is used only in AES
-      if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
-        dataDO = SecureMessaging.do85(edata);
+      final bool isSelectByDfName = (cmd.ins == ISO7816_INS.SELECT_FILE &&
+          cmd.p1 == ISO97816_SelectFileP1.byDFName); // P1 == 0x04
+
+      if (isSelectByDfName) {
+        // Authenticated-but-not-encrypted SELECT AID
+        dataDO = SecureMessaging.do85(cmd.data!);
       } else {
-        dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
+        // Current behavior
+        final edata =
+            cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
+        if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
+          dataDO = SecureMessaging.do85(edata);
+        } else {
+          dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
+        }
       }
     }
     return dataDO;
