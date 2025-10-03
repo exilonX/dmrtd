@@ -63,18 +63,37 @@ class MrtdSM extends SecureMessaging {
 
     // MAC over SSC || masked header || dataDO || do97
     final headerForMac = pcmd.rawHeader(); // snapshot
-    final macInput =
-        Uint8List.fromList(_ssc.toBytes() + headerForMac + dataDO + do97);
-    final paddedMacInput = ISO9797.pad(macInput, blockLen());
-    _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
-    _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
 
-    final CC = cipher.mac(paddedMacInput);
-    final cc8 = CC.sublist(0, 8);
+    // 5) Build M and N per TR-03110 / ICAO 9303
+    final m = ISO9797.pad(
+      Uint8List.fromList(headerForMac + dataDO + do97),
+      blockLen(),
+    );
 
+    final n = ISO9797.pad(
+      Uint8List.fromList(_ssc.toBytes() + m),
+      blockLen(),
+    );
+
+    _log.verbose("M (padded header+DOs)    =${m.hex()}");
+    _log.verbose("N (padded SSC||M)        =${n.hex()}");
+
+// 6) Calculate CC over N and use the first 8 bytes in DO'8E'
+    final fullCC = cipher.mac(n); // 16-byte AES-CMAC
+    final cc8 = fullCC.sublist(0, 8); // truncate to 8 bytes for DO'8E'
     final do8E = SecureMessaging.do8E(cc8);
 
-    _log.verbose("Calculated CC=${cc8.hex()}");
+    // final macInput =
+    //     Uint8List.fromList(_ssc.toBytes() + headerForMac + dataDO + do97);
+    // final paddedMacInput = ISO9797.pad(macInput, blockLen());
+    // _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
+    // _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
+    // final CC = cipher.mac(paddedMacInput);
+    // final cc8 = CC.sublist(0, 8);
+    // final do8E = SecureMessaging.do8E(cc8);
+
+    _log.verbose("Calculated CC (full)     =${fullCC.hex()}");
+    _log.verbose("Calculated CC (8 bytes)  =${cc8.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
     if (isSelectByDfName) {
