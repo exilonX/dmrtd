@@ -39,7 +39,6 @@ class MrtdSM extends SecureMessaging {
     _log.sdVerbose("  data=${cmd.data?.hex()}");
     _log.verbose("  Le=${cmd.ne}");
 
-    // Increment SSC should be made before encrypting data
     _ssc.increment();
     _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
 
@@ -47,53 +46,49 @@ class MrtdSM extends SecureMessaging {
     _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
 
     final bool isSelectByDfName = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
-        pcmd.p1 == ISO97816_SelectFileP1.byDFName); // 0xA4 / 0x04
+        pcmd.p1 == ISO97816_SelectFileP1.byDFName); // A4/04
 
-    // 3) Build data DO (DO87 or DO85)
+    // Decide once, use consistently in DO97 and serialization.
+    // For SELECT by DF name → no DO97, no outer Le.
+    // For others → DO97 carries Le=0x00 (variable length), outer Le omitted.
+    final int desiredNe = isSelectByDfName ? 0 : 256;
+
+    // Build DO85/DO87 (SELECT by DF name uses DO85, not encrypted)
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
     final Uint8List do97 =
-        isSelectByDfName ? Uint8List(0) : SecureMessaging.do97(pcmd.ne);
+        isSelectByDfName ? Uint8List(0) : SecureMessaging.do97(desiredNe);
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
-    // 5) Compute MAC input = [SSC || header_masked || dataDO || do97] padded once at end
+    // MAC over SSC || masked header || dataDO || do97
+    final headerForMac = pcmd.rawHeader(); // snapshot
     final macInput =
-        Uint8List.fromList(_ssc.toBytes() + pcmd.rawHeader() + dataDO + do97);
+        Uint8List.fromList(_ssc.toBytes() + headerForMac + dataDO + do97);
     final paddedMacInput = ISO9797.pad(macInput, blockLen());
 
     _log.verbose("MAC input (unpadded)     =${macInput.hex()}");
     _log.verbose("MAC input (padded block) =${paddedMacInput.hex()}");
 
-    // final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
-    // _log.verbose("Generated M=${M.hex()} size=${M.length}");
-
-    // final N = generateN(M: M);
-    // _log.verbose("Generated N=${N.hex()} size=${N.length}");
-    // _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
-
-    // 6) Calculate CC = AES‑CMAC(K<sub>MAC</sub>, paddedMacInput)
     final CC = cipher.mac(paddedMacInput);
-
     final do8E = SecureMessaging.do8E(CC);
+
     _log.verbose("Calculated CC=${CC.hex()}");
     _log.verbose("Generated DO8E=${do8E.hex()}");
 
-    // final CC = cipher.mac(N);
-    // final do8E = SecureMessaging.do8E(CC);
-    // _log.verbose("Calculated CC=${CC.hex()}");
-    // _log.verbose("Generated data DO8E=${do8E.hex()}");
-
     if (isSelectByDfName) {
-      // Only DO85 + DO8E, and **no** Le in the APDU
       pcmd.data = Uint8List.fromList(dataDO + do8E);
-      pcmd.ne = 0; // ensure your serializer does NOT append an Le
-      pcmd.p2 = 0x00;
-      return pcmd;
+      pcmd.ne = 0; // no outer Le
+      // DO NOT TOUCH P2 — keep caller’s 0x0C
+    } else {
+      pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
+      pcmd.ne = 0; // rely on DO97 only; avoids case-4 ambiguity
     }
 
-    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
-    pcmd.ne = 256; // serialized as 0x00
+    // Belt & suspenders: make sure nothing touched the header after MAC
+    assert(const ListEquality().equals(headerForMac, pcmd.rawHeader()),
+        "SM header changed after MAC");
+
     return pcmd;
   }
 
@@ -214,9 +209,15 @@ class MrtdSM extends SecureMessaging {
 
   @visibleForTesting
   CommandAPDU maskCmd(final CommandAPDU cmd) {
-    CommandAPDU mcmd = cmd;
-    mcmd.cla |= ISO7816_CLA.SM_HEADER_AUTHN;
-    return mcmd;
+    // Deep copy + set SM bit on CLA
+    return CommandAPDU(
+      cla: cmd.cla | ISO7816_CLA.SM_HEADER_AUTHN,
+      ins: cmd.ins,
+      p1: cmd.p1,
+      p2: cmd.p2,
+      data: (cmd.data == null) ? null : Uint8List.fromList(cmd.data!),
+      ne: cmd.ne,
+    );
   }
 
   /// Returns decoded data from DO85 or DO87 if they are present in [rapdu].
