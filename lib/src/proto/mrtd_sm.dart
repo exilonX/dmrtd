@@ -62,24 +62,19 @@ class MrtdSM extends SecureMessaging {
     _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
     // MAC over SSC || masked header || dataDO || do97
-    final headerForMac = pcmd.rawHeader(); // snapshot
+    // snapshot the header BEFORE any changes
+    final headerForMac = pcmd.rawHeader();
 
-    // 5) Build M and N per TR-03110 / ICAO 9303
-    final m = ISO9797.pad(
-      Uint8List.fromList(headerForMac + dataDO + do97),
-      blockLen(),
-    );
+// Build CMAC input = SSC' || CLA'INS P1 P2 || DO85/DO87 || [DO97]
+    final macInput = Uint8List.fromList([
+      ..._ssc.toBytes(),
+      ...headerForMac,
+      ...dataDO,
+      ...do97,
+    ]);
 
-    final n = ISO9797.pad(
-      Uint8List.fromList(_ssc.toBytes() + m),
-      blockLen(),
-    );
-
-    _log.verbose("M (padded header+DOs)    =${m.hex()}");
-    _log.verbose("N (padded SSC||M)        =${n.hex()}");
-
-// 6) Calculate CC over N and use the first 8 bytes in DO'8E'
-    final fullCC = cipher.mac(n); // 16-byte AES-CMAC
+    // 6) Calculate CC over N and use the first 8 bytes in DO'8E'
+    final fullCC = cipher.mac(macInput); // 16-byte AES-CMAC
     final cc8 = fullCC.sublist(0, 8); // truncate to 8 bytes for DO'8E'
     final do8E = SecureMessaging.do8E(cc8);
 

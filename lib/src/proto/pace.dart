@@ -1252,9 +1252,9 @@ class PACE {
         }
 
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
-        final ssc = SSC.forRomanianEID();
+        final ssc = AES_SSC();
 
-        print("SSC after increment: ${ssc.toBytes().hex()}");
+        print("Initial SSC : ${ssc.toBytes().hex()}");
 
         // and finally plug it into your SM layer
         final smCipher = (cipherAlgo == CipherAlgorithm.AES)
