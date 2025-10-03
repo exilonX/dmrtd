@@ -1252,7 +1252,10 @@ class PACE {
         }
 
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
-        final ssc = AES_SSC();
+        final ssc = SSC.anotherPACE(
+          iccEphemeral: iccEphem, // full 65-byte SEC1 encoded point
+          ifdEphemeral: ifdEphem, // full 65-byte SEC1 encoded point
+        );
 
         print("Initial SSC : ${ssc.toBytes().hex()}");
 

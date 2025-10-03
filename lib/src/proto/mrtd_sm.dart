@@ -31,6 +31,7 @@ class MrtdSM extends SecureMessaging {
   SSC get ssc => _ssc;
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
+
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
     _log.debug("Protecting APDU");
