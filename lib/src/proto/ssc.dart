@@ -88,12 +88,12 @@ class SSC {
     print("IFD last 8 bytes: ${ifdLast8.hex()}");
 
     // Build SSC: ICC(8) || IFD(8) - NO REPETITION
-    final ssc = Uint8List(16);
-    ssc.setRange(0, 8, iccLast8);
-    ssc.setRange(8, 16, ifdLast8);
+    final sscBytes = Uint8List(16);
+    sscBytes.setRange(0, 8, ifdLast8);
+    sscBytes.setRange(8, 16, iccLast8);
 
-    print("Final SSC: ${ssc.hex()}");
-    return SSC(ssc, 128);
+    print("Final SSC: ${sscBytes.hex()}");
+    return SSC(sscBytes, 128);
   }
 
   void increment() {
