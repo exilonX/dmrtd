@@ -1257,6 +1257,7 @@ class PACE {
           ifdEphemeral: ifdEphem,
         );
         // final ssc = SSC.forRomanianEID();
+        ssc.increment(); // increment before first use
 
         print("Initial SSC : ${ssc.toBytes().hex()}");
 
