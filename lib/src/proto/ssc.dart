@@ -81,8 +81,8 @@ class SSC {
     final ifdX = ifdEphemeral.sublist(1, 33); // 32 bytes X coordinate
 
     // Take LAST 8 bytes of each X coordinate (not 4!)
-    final iccLast8 = iccX.sublist(24, 32); // Last 8 bytes
-    final ifdLast8 = ifdX.sublist(24, 32); // Last 8 bytes
+    final iccLast8 = iccX.sublist(iccX.length - 8); // Last 8 bytes
+    final ifdLast8 = ifdX.sublist(ifdX.length - 8); // Last 8 bytes
 
     print("ICC last 8 bytes: ${iccLast8.hex()}");
     print("IFD last 8 bytes: ${ifdLast8.hex()}");
