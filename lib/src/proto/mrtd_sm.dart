@@ -45,13 +45,13 @@ class MrtdSM extends SecureMessaging {
     final headerForMac = pcmd.rawHeader();
 
     Uint8List macInput;
+    Uint8List fullCC;
 
     // --- START OF THE FINAL BAC FIX ---
     if (cipher.type == CipherAlgorithm.DESede) {
-      _log.warning(
-          "Applying BAC Fix: Using ZERO-PADDING for 3DES MAC calculation.");
+      _log.warning("Applying BAC Fix: Using full MAC input with ZERO-PADDING.");
 
-      // For BAC, the MAC input IS SSC || HEADER || DATA OBJECTS
+      // For BAC on this card, the MAC input IS the standard SSC || HEADER || DATA OBJECTS
       macInput = Uint8List.fromList([
         ..._ssc.toBytes(),
         ...headerForMac,
@@ -60,9 +60,12 @@ class MrtdSM extends SecureMessaging {
       ]);
       _log.verbose("BAC MAC input (unpadded) =${macInput.hex()}");
 
-      // BUT, the padding must be ZEROs, not ISO9797's 0x80...
-      macInput = padWithZeros(macInput, blockLen());
-      _log.verbose("BAC MAC input (ZERO-PADDED) =${macInput.hex()}");
+      // BUT, the padding MUST be ZEROs, not ISO9797's 0x80...
+      final paddedMacInput = padWithZeros(macInput, blockLen());
+      _log.verbose("BAC MAC input (ZERO-PADDED) =${paddedMacInput.hex()}");
+
+      // The mac function for DES in the library expects already-padded data
+      fullCC = cipher.mac(paddedMacInput);
     }
     // --- END OF THE FINAL BAC FIX ---
     else {
@@ -73,11 +76,15 @@ class MrtdSM extends SecureMessaging {
         ...dataDO,
         ...do97,
       ]);
+      // The AES mac function handles its own padding correctly.
+      fullCC = cipher.mac(macInput);
     }
 
-    final fullCC = cipher.mac(macInput);
     final cc8 = fullCC.sublist(0, 8);
     final do8E = SecureMessaging.do8E(cc8);
+
+    _log.verbose("Calculated CC=${cc8.hex()}");
+    _log.verbose("Generated DO8E=${do8E.hex()}");
 
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = 0;
