@@ -97,10 +97,16 @@ class SSC {
   }
 
   void increment() {
-    _ssc += BigInt.from(1);
-    if (_ssc.bitLength > bitSize) {
-      _ssc = BigInt.from(0);
+    final sscBytes = toBytes();
+    // interpret SSC as big-endian per spec
+    var carry = 1;
+    for (var i = sscBytes.length - 1; i >= 0; i--) {
+      final sum = sscBytes[i] + carry;
+      sscBytes[i] = sum & 0xFF;
+      carry = sum >> 8;
+      if (carry == 0) break;
     }
+    _ssc = BigInt.parse(sscBytes.hex(), radix: 16);
   }
 
   Uint8List toBytes() {
