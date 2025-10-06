@@ -53,6 +53,43 @@ class Passport {
     _log.debug("Session established");
   }
 
+  Future<ResponseAPDU> testSecureMessagingChannel() async {
+    if (_api.icc.sm == null) {
+      throw PassportError("Secure Messaging session is not active.");
+    }
+
+    final sm = _api.icc.sm!;
+
+    _log.info("Testing SM channel: protected GET CHALLENGE (INS=0x84)");
+
+    // 1. Build a plain APDU
+    final apdu = CommandAPDU(
+      cla: 0x00,
+      ins: 0x84,
+      p1: 0x00,
+      p2: 0x00,
+      ne: 8,
+    );
+
+    // 2. Protect it using the active SM
+    final protectedApdu = sm.protect(apdu);
+    _log.fine("Protected APDU: ${protectedApdu.toString()}");
+
+    // 3. Send it to the ICC
+    final rapdu = await _api.icc.transceiveApdu(protectedApdu);
+    _log.info("Protected RAPDU SW: ${rapdu.status}");
+
+    // 4. Try to unprotect (if possible)
+    try {
+      final unprotected = sm.unprotect(rapdu);
+      _log.info("Unprotected RAPDU: ${unprotected.status}");
+      return unprotected;
+    } catch (e) {
+      _log.warning("Failed to unprotect RAPDU, returning raw: $e");
+      return rapdu;
+    }
+  }
+
   /// Starts new Secure Messaging session with passport
   /// using PACE (Password Authenticated Connection Establishment) protocol.
   ///

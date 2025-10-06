@@ -49,24 +49,25 @@ class MrtdSM extends SecureMessaging {
 
     // --- START OF THE FINAL BAC FIX ---
     if (cipher.type == CipherAlgorithm.DESede) {
-      _log.warning("Applying BAC Fix: Using full MAC input with ZERO-PADDING.");
+      _log.warning("Applying BAC SM per ICAO 9303 §9.8.2");
 
-      // For BAC on this card, the MAC input IS the standard SSC || HEADER || DATA OBJECTS
+      // Build MAC input
       macInput = Uint8List.fromList([
         ..._ssc.toBytes(),
         ...headerForMac,
         ...dataDO,
         ...do97,
       ]);
-      _log.verbose("BAC MAC input (unpadded) =${macInput.hex()}");
+      _log.verbose("BAC MAC input (raw) = ${macInput.hex()}");
 
-      // BUT, the padding MUST be ZEROs, not ISO9797's 0x80...
-      final paddedMacInput = padWithZeros(macInput, blockLen());
-      _log.verbose("BAC MAC input (ZERO-PADDED) =${paddedMacInput.hex()}");
+      // ISO9797 Method 2 padding (0x80 + zeros)
+      final paddedMacInput = ISO9797.pad(macInput, blockLen());
+      _log.verbose("BAC MAC input (ISO9797 padded) = ${paddedMacInput.hex()}");
 
-      // The mac function for DES in the library expects already-padded data
+      // Compute DESede MAC (Algorithm 3)
       fullCC = cipher.mac(paddedMacInput);
     }
+
     // --- END OF THE FINAL BAC FIX ---
     else {
       // --- Original PACE (AES) Logic - UNCHANGED ---
