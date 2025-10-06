@@ -28,6 +28,7 @@ class MrtdSM extends SecureMessaging {
 
   SSC _ssc;
   set ssc(final SSC ssc) => _ssc = ssc;
+  SSC get ssc => _ssc;
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
 
