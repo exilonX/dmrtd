@@ -98,7 +98,6 @@ class SSC {
 
   void increment() {
     final sscBytes = toBytes();
-    // interpret SSC as big-endian per spec
     var carry = 1;
     for (var i = sscBytes.length - 1; i >= 0; i--) {
       final sum = sscBytes[i] + carry;
