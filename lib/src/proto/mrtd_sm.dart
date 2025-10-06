@@ -51,17 +51,33 @@ class MrtdSM extends SecureMessaging {
     final bool returnsData = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
         pcmd.p1 == ISO97816_SelectFileP1.byDFName);
 
+    // The Romanian eID appears to reject protected SELECT commands if DO'97' is present.
+    final bool isSelectCommand = cmd.ins == ISO7816_INS.SELECT_FILE;
+    if (isSelectCommand) {
+      _log.warning(
+          "Applying Romanian eID Fix: OMITTING DO'97' for SELECT command.");
+    }
+
     // 4) Data DO: SELECT AID → DO85 (authenticated, not encrypted)
     final dataDO = generateDataDO(pcmd);
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
     // 5) DO97 for “returns data” commands
     final Uint8List do97 =
-        returnsData ? SecureMessaging.do97(256) : Uint8List(0);
+        !isSelectCommand ? SecureMessaging.do97(cmd.ne) : Uint8List(0);
     _log.verbose("Generated DO97=${do97.hex()}, size=${do97.length}");
 
-    // 6) Snapshot header for MAC
     final headerForMac = pcmd.rawHeader();
+    final macInput = Uint8List.fromList([
+      ..._ssc.toBytes(),
+      ...headerForMac,
+      ...dataDO,
+      ...do97,
+    ]);
+
+    final fullCC = cipher.mac(macInput);
+    final cc8 = fullCC.sublist(0, 8);
+    final do8E = SecureMessaging.do8E(cc8);
 
     // -------- ONE-TIME SANITY LOGS (put right here) --------
     _log.verbose("SSC'         = ${_ssc.toBytes().hex()}");
@@ -69,19 +85,19 @@ class MrtdSM extends SecureMessaging {
     _log.verbose("DO85/DO87    = ${dataDO.hex()}");
     _log.verbose("DO97         = ${do97.hex()}");
     // Expect len 32 for SELECT AID: 16(SSC)+4(hdr)+9(DO85)+3(DO97)=32
-    final macInput = Uint8List.fromList([
-      ..._ssc.toBytes(),
-      ...headerForMac,
-      ...dataDO,
-      ...do97,
-    ]);
+    // final macInput = Uint8List.fromList([
+    //   ..._ssc.toBytes(),
+    //   ...headerForMac,
+    //   ...dataDO,
+    //   ...do97,
+    // ]);
     _log.verbose("CMAC input   = ${macInput.hex()} (len=${macInput.length})");
     // -------------------------------------------------------
 
     // 7) CMAC over raw bytes (CMAC handles padding internally)
-    final fullCC = cipher.mac(macInput);
-    final cc8 = fullCC.sublist(0, 8);
-    final do8E = SecureMessaging.do8E(cc8);
+    // final fullCC = cipher.mac(macInput);
+    // final cc8 = fullCC.sublist(0, 8);
+    // final do8E = SecureMessaging.do8E(cc8);
 
     _log.verbose("Calculated CC (full)     =${fullCC.hex()}");
     _log.verbose("Calculated CC (8 bytes)  =${cc8.hex()}");
@@ -161,22 +177,8 @@ class MrtdSM extends SecureMessaging {
   Uint8List generateDataDO(final CommandAPDU cmd) {
     var dataDO = Uint8List(0);
     if (cmd.data != null && cmd.data!.isNotEmpty) {
-      // --- START OF THE FINAL FIX ---
-      Uint8List paddedData;
-      final bool isSelectCommand = cmd.ins == ISO7816_INS.SELECT_FILE;
-
-      if (isSelectCommand) {
-        _log.warning(
-            "Applying Romanian eID Fix: Using ZERO-PADDING for SELECT command encryption.");
-        paddedData = padWithZeros(cmd.data!, blockLen());
-      } else {
-        // Standard padding for all other commands
-        paddedData = ISO9797.pad(cmd.data!, blockLen());
-      }
-      // --- END OF THE FINAL FIX ---
-
-      final edata = cipher.encrypt(paddedData, ssc: _ssc);
-
+      final edata =
+          cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
       if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
         dataDO = SecureMessaging.do85(edata);
       } else {
