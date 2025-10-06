@@ -1,5 +1,7 @@
 // Created by Crt Vavros, copyright © 2022 ZeroPass. All rights reserved.
 import 'dart:typed_data';
+import 'package:dmrtd/src/lds/asn1ObjectIdentifiers.dart';
+
 import '../../lds/tlv.dart';
 import '../../utils.dart';
 
@@ -46,27 +48,26 @@ abstract class SecureMessaging {
     return _buildDO(tagDO8E, data);
   }
 
-  static Uint8List do97(final int? ne) {
-    // Make ne nullable to handle cmd.ne being null
+  static Uint8List do97(final int? ne, {CipherAlgorithm? cipherType}) {
     final int expectedLength = ne ?? 0;
 
-    // ======================= THE FINAL FIX =======================
-    // As per the guide, if Le (ne) is 0, we must still encode DO97 as "97 01 00".
+    // For BAC (DESede): omit DO97 if Le == 0
+    if (cipherType == CipherAlgorithm.DESede && expectedLength == 0) {
+      return Uint8List(0);
+    }
+
+    // For PACE (AES): always include DO97(00) if Le == 0
     if (expectedLength == 0) {
       return TLV.encode(tagDO97, Uint8List.fromList([0x00]));
     }
-    // ===============================================================
 
     if (expectedLength == 256) {
-      // For Le=256, value is 0x00. Length is 1 byte.
       return TLV.encode(tagDO97, Uint8List.fromList([0x00]));
     }
     if (expectedLength == 65536) {
-      // For Le=65536, value is 0x0000. Length is 2 bytes.
       return TLV.encode(tagDO97, Uint8List.fromList([0x00, 0x00]));
     }
 
-    // For all other cases, use the existing logic.
     return _buildDO(tagDO97, Utils.intToBin(expectedLength, minLen: 0));
   }
 

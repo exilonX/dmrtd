@@ -41,7 +41,7 @@ class MrtdSM extends SecureMessaging {
 
     final pcmd = maskCmd(cmd);
     final dataDO = generateDataDO(pcmd);
-    final do97 = SecureMessaging.do97(pcmd.ne);
+    final do97 = SecureMessaging.do97(pcmd.ne, cipherType: cipher.type);
     final headerForMac = pcmd.rawHeader();
 
     Uint8List macInput;
@@ -77,6 +77,7 @@ class MrtdSM extends SecureMessaging {
         ...dataDO,
         ...do97,
       ]);
+
       // The AES mac function handles its own padding correctly.
       fullCC = cipher.mac(macInput);
     }

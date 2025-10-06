@@ -53,43 +53,6 @@ class Passport {
     _log.debug("Session established");
   }
 
-  Future<ResponseAPDU> testSecureMessagingChannel() async {
-    if (_api.icc.sm == null) {
-      throw PassportError("Secure Messaging session is not active.");
-    }
-
-    final sm = _api.icc.sm!;
-
-    _log.info("Testing SM channel: protected GET CHALLENGE (INS=0x84)");
-
-    // 1. Build a plain APDU
-    final apdu = CommandAPDU(
-      cla: 0x00,
-      ins: 0x84,
-      p1: 0x00,
-      p2: 0x00,
-      ne: 8,
-    );
-
-    // 2. Protect it using the active SM
-    final protectedApdu = sm.protect(apdu);
-    _log.fine("Protected APDU: ${protectedApdu.toString()}");
-
-    // 3. Send it to the ICC
-    final rapdu = await _api.icc.transceiveApdu(protectedApdu);
-    _log.info("Protected RAPDU SW: ${rapdu.status}");
-
-    // 4. Try to unprotect (if possible)
-    try {
-      final unprotected = sm.unprotect(rapdu);
-      _log.info("Unprotected RAPDU: ${unprotected.status}");
-      return unprotected;
-    } catch (e) {
-      _log.warning("Failed to unprotect RAPDU, returning raw: $e");
-      return rapdu;
-    }
-  }
-
   /// Starts new Secure Messaging session with passport
   /// using PACE (Password Authenticated Connection Establishment) protocol.
   ///
@@ -101,109 +64,6 @@ class Passport {
     _log.debug("Starting session");
     await _exec(() => _api.initSessionViaPACE(accessKey, efCardAccess));
     _log.debug("Session established");
-  }
-
-  Future<ResponseAPDU> verifyPinCustom({
-    required String pin,
-    required int pinRef,
-  }) async {
-    _log.info(
-        "FINAL ATTEMPT: Building VERIFY PIN command with precise manual padding...");
-
-    // --- 1. Get the active SM session ---
-    if (_api.icc.sm == null) {
-      throw PassportError("Secure Messaging session is not active.");
-    }
-    final sm = _api.icc.sm as MrtdSM;
-    final smCipher = sm.cipher;
-    final ssc = sm.ssc;
-
-    // --- 2. Manually construct the EXACT 16-byte block for encryption ---
-    // This is the synthesis of all our findings.
-    final dataToEncrypt = Uint8List(16); // AES block size is 16
-
-    // First, fill the entire block with 0x00. This handles the final padding.
-    dataToEncrypt.fillRange(0, 16, 0x00);
-
-    // Next, fill the first 12 bytes with 0xFF. This handles the logical padding.
-    dataToEncrypt.fillRange(0, 12, 0xFF);
-
-    // Finally, copy the actual PIN bytes to the beginning of the block.
-    final pinBytes = utf8.encode(pin);
-    dataToEncrypt.setRange(0, pinBytes.length, pinBytes);
-
-    // For PIN "1234", the result is exactly: 31323334FFFFFFFFFFFFFFFF00000000
-    _log.fine(
-        "Definitive 16-byte block to be encrypted: ${dataToEncrypt.hex()}");
-
-    // --- 3. Manually perform Secure Messaging protection ---
-    ssc.increment();
-    _log.fine("Using SSC for protection: ${ssc.toBytes().hex()}");
-
-    final maskedHeader =
-        CommandAPDU(cla: 0x00, ins: 0x20, p1: 0x00, p2: pinRef).rawHeader();
-    maskedHeader[0] |= ISO7816_CLA.SM_HEADER_AUTHN;
-
-    // Encrypt the manually crafted 16-byte block.
-    // NO MORE ISO9797.pad() CALLS ON THE DATA.
-    final encryptedData = smCipher.encrypt(dataToEncrypt, ssc: ssc);
-
-    // Build the SM objects. We must tell DO'87' that the data is NOT padded
-    // in the standard way, so it doesn't add the '01' indicator byte.
-    final do87 = SecureMessaging.do87(encryptedData, dataIsPadded: false);
-    final do97 = SecureMessaging.do97(0); // Le=0
-
-    // The rest of the MAC calculation is standard.
-    final macInput = BytesBuilder()
-      ..add(ssc.toBytes())
-      ..add(maskedHeader)
-      ..add(do87)
-      ..add(do97);
-
-    final paddedMacInput = ISO9797.pad(macInput.toBytes(), sm.blockLen());
-    final cc = smCipher.mac(paddedMacInput);
-    final do8e = SecureMessaging.do8E(cc);
-
-    final protectedData = (BytesBuilder()
-          ..add(do87)
-          ..add(do97)
-          ..add(do8e))
-        .toBytes();
-
-    final protectedApdu = CommandAPDU(
-      cla: maskedHeader[0],
-      ins: maskedHeader[1],
-      p1: maskedHeader[2],
-      p2: maskedHeader[3],
-      data: protectedData,
-      ne: 256,
-    );
-
-    // --- 4. Send the raw APDU and process the response ---
-    _log.fine("Sending fully constructed protected APDU...");
-    final rawResponse = await _api.icc.transceiveRawUnprotected(protectedApdu);
-
-    if (rawResponse.status.isError()) {
-      throw PassportError("Card rejected the protected VERIFY command",
-          code: rawResponse.status);
-    }
-
-    _log.fine("Received raw protected response. Unprotecting...");
-    final unprotectedResponse = sm.unprotect(rawResponse);
-
-    // Check for logical PIN errors inside the protected response
-    if (unprotectedResponse.status.isError()) {
-      if (unprotectedResponse.status.sw1 ==
-          StatusWord.authenticationFailed.sw1) {
-        final retries = unprotectedResponse.status.sw2 & 0x0F;
-        if (retries == 0) throw PinPermanentlyBlockedException();
-        throw PinVerificationFailedException(retries);
-      }
-      throw PassportError("PIN verification failed logically",
-          code: unprotectedResponse.status);
-    }
-
-    return unprotectedResponse;
   }
 
   void clearSession() {
@@ -577,44 +437,6 @@ class Passport {
   Future<EfDG2> readEfDG2OnCurrentDf1() async {
     _log.debug("Reading EF.DG2 (no DF1 reselect)");
     return EfDG2.fromBytes(await _exec(() => _api.readFileBySFI(EfDG2.SFI)));
-  }
-
-  /// Selects the eMRTD application, establishes a BAC session,
-  /// then sends the VERIFY APDU in one shot.
-  Future<void> startSessionAndVerifyPin({
-    required String pin,
-    int pinRef = 0x03,
-  }) async {
-    await _api.icc.verifyPinSM(pin, pinRef: pinRef);
-
-    _log.info('Session established and PIN verified');
-  }
-
-  /// Selects the eMRTD application, establishes a BAC session,
-  /// then sends the VERIFY APDU in one shot.
-  Future<void> startSessionAndVerifyPinRaw({
-    required DBAKey bacKeys,
-    required String pin,
-    int pinRef = 0x03,
-  }) async {
-    await _api.icc.initiateT1Protocol();
-
-    final List<int> filesToRead = [
-      0x010B, // File ID for DG11 (Address)
-    ];
-
-    // 3. Verify the PIN via ICC
-    final Map<int, Uint8List> fileData =
-        await _api.icc.directPinAuthAndRead(pin, filesToRead);
-
-    _log.info('Session established and PIN verified');
-
-    // Now, you can access the data for each file from the returned map.
-    if (fileData.containsKey(0x010B)) {
-      print("Raw Address Data (DG11):");
-      print(fileData[0x010B]!.hex());
-      // Here you would add your code to parse the address TLV data.
-    }
   }
 
   /// Transceives a raw, pre-formatted command APDU for diagnostics.
