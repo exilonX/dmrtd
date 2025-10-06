@@ -160,21 +160,23 @@ class MrtdSM extends SecureMessaging {
 
   Uint8List generateDataDO(final CommandAPDU cmd) {
     var dataDO = Uint8List(0);
+    if (cmd.data != null && cmd.data!.isNotEmpty) {
+      // --- START OF THE FINAL FIX ---
+      Uint8List paddedData;
+      final bool isSelectCommand = cmd.ins == ISO7816_INS.SELECT_FILE;
 
-    // --- START OF THE CRITICAL FIX FOR ROMANIAN eID ---
-    final bool isSelectCommand = cmd.ins == ISO7816_INS.SELECT_FILE;
+      if (isSelectCommand) {
+        _log.warning(
+            "Applying Romanian eID Fix: Using ZERO-PADDING for SELECT command encryption.");
+        paddedData = padWithZeros(cmd.data!, blockLen());
+      } else {
+        // Standard padding for all other commands
+        paddedData = ISO9797.pad(cmd.data!, blockLen());
+      }
+      // --- END OF THE FINAL FIX ---
 
-    if (isSelectCommand && cmd.data != null && cmd.data!.isNotEmpty) {
-      _log.warning(
-          "Applying Romanian eID Fix: Using plaintext DO'85' for SELECT command data.");
-      dataDO = SecureMessaging.do85(cmd.data!);
-    }
-    // --- END OF THE FIX ---
+      final edata = cipher.encrypt(paddedData, ssc: _ssc);
 
-    else if (cmd.data != null && cmd.data!.isNotEmpty) {
-      // This is the original logic for all other commands
-      final edata =
-          cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
       if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
         dataDO = SecureMessaging.do85(edata);
       } else {
@@ -182,6 +184,16 @@ class MrtdSM extends SecureMessaging {
       }
     }
     return dataDO;
+  }
+
+  // Add this helper function somewhere accessible
+  Uint8List padWithZeros(Uint8List data, int blockSize) {
+    final padLength = blockSize - (data.length % blockSize);
+    if (padLength == blockSize) {
+      return data; // Already a multiple of block size
+    }
+    final padded = Uint8List(data.length + padLength)..setAll(0, data);
+    return padded;
   }
 
   int blockLen() {
