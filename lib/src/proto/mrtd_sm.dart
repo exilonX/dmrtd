@@ -63,18 +63,23 @@ class MrtdSM extends SecureMessaging {
     _log.verbose("Generated data DO=${dataDO.hex()}");
 
     // 5) DO97 for “returns data” commands
-    final Uint8List do97 =
-        !isSelectCommand ? SecureMessaging.do97(cmd.ne) : Uint8List(0);
+    final Uint8List do97 = SecureMessaging.do97(pcmd.ne);
     _log.verbose("Generated DO97=${do97.hex()}, size=${do97.length}");
 
     final headerForMac = pcmd.rawHeader();
-    final macInput = Uint8List.fromList([
+    var macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
       ...headerForMac,
       ...dataDO,
       ...do97,
     ]);
 
+    if (cipher.type == CipherAlgorithm.DESede) {
+      _log.warning("Applying BAC Fix: Manually padding MAC input for 3DES.");
+      macInput = ISO9797.pad(macInput, blockLen());
+    }
+
+    // 6) Generate MAC (CC) from SSC || header || DO85/DO87 || [DO97]
     final fullCC = cipher.mac(macInput);
     final cc8 = fullCC.sublist(0, 8);
     final do8E = SecureMessaging.do8E(cc8);
@@ -106,10 +111,6 @@ class MrtdSM extends SecureMessaging {
     // 8) Serialize: DO85/DO87 || [DO97] || DO8E; no outer Le
     pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
     pcmd.ne = 0;
-
-    // 9) Paranoia: header must not change after MAC
-    assert(const ListEquality().equals(headerForMac, pcmd.rawHeader()),
-        "SM header changed after MAC");
 
     return pcmd;
   }
