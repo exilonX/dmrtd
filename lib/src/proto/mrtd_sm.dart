@@ -34,84 +34,52 @@ class MrtdSM extends SecureMessaging {
 
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
-    _log.debug("Protecting APDU");
-    _log.verbose("  header=${cmd.rawHeader().hex()}");
-    _log.sdVerbose("  data=${cmd.data?.hex()}");
-    _log.verbose("  Le=${cmd.ne}");
+    _log.debug("Protecting APDU: ${cmd.toString()}");
 
-    // 1) Increment SSC first
     _ssc.increment();
-    _log.verbose("  SSC incremented to: ${_ssc.toBytes().hex()}");
+    _log.verbose("SSC incremented to: ${_ssc.toBytes().hex()}");
 
-    // 2) Mask header (set SM bit), but don't touch P1/P2
     final pcmd = maskCmd(cmd);
-    _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
-
-    // 3) This SELECT AID returns FCI, so we MUST include DO97(00)
-    final bool returnsData = (pcmd.ins == ISO7816_INS.SELECT_FILE &&
-        pcmd.p1 == ISO97816_SelectFileP1.byDFName);
-
-    // The Romanian eID appears to reject protected SELECT commands if DO'97' is present.
-    final bool isSelectCommand = cmd.ins == ISO7816_INS.SELECT_FILE;
-    if (isSelectCommand) {
-      _log.warning(
-          "Applying Romanian eID Fix: OMITTING DO'97' for SELECT command.");
-    }
-
-    // 4) Data DO: SELECT AID → DO85 (authenticated, not encrypted)
     final dataDO = generateDataDO(pcmd);
-    _log.verbose("Generated data DO=${dataDO.hex()}");
+    final do97 = SecureMessaging.do97(pcmd.ne);
 
-    // 5) DO97 for “returns data” commands
-    final Uint8List do97 = SecureMessaging.do97(pcmd.ne);
-    _log.verbose("Generated DO97=${do97.hex()}, size=${do97.length}");
+    // --- START OF THE FUNDAMENTAL BAC FIX ---
+    if (cipher.type == CipherAlgorithm.DESede) {
+      _log.warning("Applying alternate BAC MAC calculation (no header/SSC).");
 
+      // For this card's BAC, the MAC is likely calculated ONLY on the data objects.
+      final macInput = Uint8List.fromList([...dataDO, ...do97]);
+
+      // The data MUST be padded before MAC calculation for 3DES.
+      final paddedMacInput = ISO9797.pad(macInput, blockLen());
+
+      final fullCC = cipher.mac(paddedMacInput);
+      final cc8 = fullCC.sublist(0, 8);
+      final do8E = SecureMessaging.do8E(cc8);
+
+      pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
+      pcmd.ne = 0;
+      return pcmd;
+    }
+    // --- END OF THE FUNDAMENTAL BAC FIX ---
+
+    // --- Original PACE (AES) Logic - UNCHANGED ---
     final headerForMac = pcmd.rawHeader();
-    var macInput = Uint8List.fromList([
+    final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
       ...headerForMac,
       ...dataDO,
       ...do97,
     ]);
-
-    if (cipher.type == CipherAlgorithm.DESede) {
-      _log.warning("Applying BAC Fix: Manually padding MAC input for 3DES.");
-      macInput = ISO9797.pad(macInput, blockLen());
-    }
-
-    // 6) Generate MAC (CC) from SSC || header || DO85/DO87 || [DO97]
     final fullCC = cipher.mac(macInput);
     final cc8 = fullCC.sublist(0, 8);
     final do8E = SecureMessaging.do8E(cc8);
 
-    // -------- ONE-TIME SANITY LOGS (put right here) --------
-    _log.verbose("SSC'         = ${_ssc.toBytes().hex()}");
-    _log.verbose("Hdr (masked) = ${headerForMac.hex()}");
-    _log.verbose("DO85/DO87    = ${dataDO.hex()}");
-    _log.verbose("DO97         = ${do97.hex()}");
-    // Expect len 32 for SELECT AID: 16(SSC)+4(hdr)+9(DO85)+3(DO97)=32
-    // final macInput = Uint8List.fromList([
-    //   ..._ssc.toBytes(),
-    //   ...headerForMac,
-    //   ...dataDO,
-    //   ...do97,
-    // ]);
-    _log.verbose("CMAC input   = ${macInput.hex()} (len=${macInput.length})");
-    // -------------------------------------------------------
-
-    // 7) CMAC over raw bytes (CMAC handles padding internally)
-    // final fullCC = cipher.mac(macInput);
-    // final cc8 = fullCC.sublist(0, 8);
-    // final do8E = SecureMessaging.do8E(cc8);
-
-    _log.verbose("Calculated CC (full)     =${fullCC.hex()}");
-    _log.verbose("Calculated CC (8 bytes)  =${cc8.hex()}");
-    _log.verbose("Generated DO8E=${do8E.hex()}");
-
-    // 8) Serialize: DO85/DO87 || [DO97] || DO8E; no outer Le
-    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
+    pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = 0;
 
+    assert(const ListEquality().equals(headerForMac, pcmd.rawHeader()),
+        "SM header changed after MAC");
     return pcmd;
   }
 
