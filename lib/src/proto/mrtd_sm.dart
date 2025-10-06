@@ -158,18 +158,19 @@ class MrtdSM extends SecureMessaging {
     return data;
   }
 
-  @visibleForTesting
   Uint8List generateDataDO(final CommandAPDU cmd) {
     var dataDO = Uint8List(0);
     if (cmd.data != null && cmd.data!.isNotEmpty) {
       final bool isSelectByDfName = (cmd.ins == ISO7816_INS.SELECT_FILE &&
-          cmd.p1 == ISO97816_SelectFileP1.byDFName); // P1 == 0x04
+          cmd.p1 == ISO97816_SelectFileP1.byDFName);
 
       if (isSelectByDfName) {
-        // Authenticated-but-not-encrypted SELECT AID
-        dataDO = SecureMessaging.do85(cmd.data!);
+        // Try encrypting SELECT AID for Romanian eID
+        final edata =
+            cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
+        dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
       } else {
-        // Current behavior
+        // Current behavior for other commands
         final edata =
             cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
         if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
