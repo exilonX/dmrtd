@@ -1252,10 +1252,11 @@ class PACE {
         }
 
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
-        final ssc = SSC.anotherPACE(
-          iccEphemeral: iccEphem,
-          ifdEphemeral: ifdEphem,
-        );
+        // final ssc = SSC.anotherPACE(
+        //   iccEphemeral: iccEphem,
+        //   ifdEphemeral: ifdEphem,
+        // );
+        final ssc = SSC.forRomanianEID();
 
         print("Initial SSC : ${ssc.toBytes().hex()}");
 
