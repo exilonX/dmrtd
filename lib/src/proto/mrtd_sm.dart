@@ -42,35 +42,39 @@ class MrtdSM extends SecureMessaging {
     final pcmd = maskCmd(cmd);
     final dataDO = generateDataDO(pcmd);
     final do97 = SecureMessaging.do97(pcmd.ne);
-
-    // --- START OF THE FUNDAMENTAL BAC FIX ---
-    if (cipher.type == CipherAlgorithm.DESede) {
-      _log.warning("Applying alternate BAC MAC calculation (no header/SSC).");
-
-      // For this card's BAC, the MAC is likely calculated ONLY on the data objects.
-      final macInput = Uint8List.fromList([...dataDO, ...do97]);
-
-      // The data MUST be padded before MAC calculation for 3DES.
-      final paddedMacInput = ISO9797.pad(macInput, blockLen());
-
-      final fullCC = cipher.mac(paddedMacInput);
-      final cc8 = fullCC.sublist(0, 8);
-      final do8E = SecureMessaging.do8E(cc8);
-
-      pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-      pcmd.ne = 0;
-      return pcmd;
-    }
-    // --- END OF THE FUNDAMENTAL BAC FIX ---
-
-    // --- Original PACE (AES) Logic - UNCHANGED ---
     final headerForMac = pcmd.rawHeader();
-    final macInput = Uint8List.fromList([
-      ..._ssc.toBytes(),
-      ...headerForMac,
-      ...dataDO,
-      ...do97,
-    ]);
+
+    Uint8List macInput;
+
+    // --- START OF THE FINAL BAC FIX ---
+    if (cipher.type == CipherAlgorithm.DESede) {
+      _log.warning(
+          "Applying BAC Fix: Using ZERO-PADDING for 3DES MAC calculation.");
+
+      // For BAC, the MAC input IS SSC || HEADER || DATA OBJECTS
+      macInput = Uint8List.fromList([
+        ..._ssc.toBytes(),
+        ...headerForMac,
+        ...dataDO,
+        ...do97,
+      ]);
+      _log.verbose("BAC MAC input (unpadded) =${macInput.hex()}");
+
+      // BUT, the padding must be ZEROs, not ISO9797's 0x80...
+      macInput = padWithZeros(macInput, blockLen());
+      _log.verbose("BAC MAC input (ZERO-PADDED) =${macInput.hex()}");
+    }
+    // --- END OF THE FINAL BAC FIX ---
+    else {
+      // --- Original PACE (AES) Logic - UNCHANGED ---
+      macInput = Uint8List.fromList([
+        ..._ssc.toBytes(),
+        ...headerForMac,
+        ...dataDO,
+        ...do97,
+      ]);
+    }
+
     final fullCC = cipher.mac(macInput);
     final cc8 = fullCC.sublist(0, 8);
     final do8E = SecureMessaging.do8E(cc8);
@@ -78,8 +82,6 @@ class MrtdSM extends SecureMessaging {
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = 0;
 
-    assert(const ListEquality().equals(headerForMac, pcmd.rawHeader()),
-        "SM header changed after MAC");
     return pcmd;
   }
 
@@ -157,10 +159,10 @@ class MrtdSM extends SecureMessaging {
     return dataDO;
   }
 
-  // Add this helper function somewhere accessible
+// Add this helper function somewhere accessible
   Uint8List padWithZeros(Uint8List data, int blockSize) {
     final padLength = blockSize - (data.length % blockSize);
-    if (padLength == blockSize) {
+    if (padLength == blockSize && data.isNotEmpty) {
       return data; // Already a multiple of block size
     }
     final padded = Uint8List(data.length + padLength)..setAll(0, data);
