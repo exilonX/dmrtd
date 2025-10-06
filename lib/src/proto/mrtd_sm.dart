@@ -160,24 +160,25 @@ class MrtdSM extends SecureMessaging {
 
   Uint8List generateDataDO(final CommandAPDU cmd) {
     var dataDO = Uint8List(0);
-    if (cmd.data != null && cmd.data!.isNotEmpty) {
-      final bool isSelectByDfName = (cmd.ins == ISO7816_INS.SELECT_FILE &&
-          cmd.p1 == ISO97816_SelectFileP1.byDFName);
 
-      if (isSelectByDfName) {
-        // Try encrypting SELECT AID for Romanian eID
-        final edata =
-            cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
-        dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
+    // --- START OF THE CRITICAL FIX FOR ROMANIAN eID ---
+    final bool isSelectCommand = cmd.ins == ISO7816_INS.SELECT_FILE;
+
+    if (isSelectCommand && cmd.data != null && cmd.data!.isNotEmpty) {
+      _log.warning(
+          "Applying Romanian eID Fix: Using plaintext DO'85' for SELECT command data.");
+      dataDO = SecureMessaging.do85(cmd.data!);
+    }
+    // --- END OF THE FIX ---
+
+    else if (cmd.data != null && cmd.data!.isNotEmpty) {
+      // This is the original logic for all other commands
+      final edata =
+          cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
+      if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
+        dataDO = SecureMessaging.do85(edata);
       } else {
-        // Current behavior for other commands
-        final edata =
-            cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()), ssc: _ssc);
-        if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
-          dataDO = SecureMessaging.do85(edata);
-        } else {
-          dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
-        }
+        dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
       }
     }
     return dataDO;
