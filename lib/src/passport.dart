@@ -257,6 +257,14 @@ class Passport {
         await _exec(() => _api.readFileBySFI(EfCardSecurity.SFI)));
   }
 
+  /// Reads file EF.CardAccess from the currently selected application (DF).
+  /// Does NOT select Master File first.
+  Future<EfCardAccess> readEfCardAccessOnCurrentDF() async {
+    _log.debug("Reading EF.CardAccess from current DF (no MF reselect)");
+    final rawBytes = await _exec(() => _api.readFileBySFI(EfCardAccess.SFI));
+    return EfCardAccess.fromBytes(rawBytes);
+  }
+
   /// Reads file EF.COM from passport.
   /// Session with passport should be already
   /// established before calling this function.
