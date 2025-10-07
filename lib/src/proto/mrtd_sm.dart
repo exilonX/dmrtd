@@ -59,20 +59,19 @@ class MrtdSM extends SecureMessaging {
     } else {
       print("=== PACE AES branch ===");
 
-      // === PACE AES branch ===
-      // No ISO9797 padding, CMAC handles it internally
       final macInput = Uint8List.fromList([
         ..._ssc.toBytes(),
         ...header,
         ...dataDO,
         ...do97,
       ]);
-      fullCC = cipher.mac(macInput);
+      final paddedMacInput = ISO9797.pad(macInput, AES_BLOCK_SIZE);
+      fullCC = cipher.mac(paddedMacInput);
       final cc8 = fullCC.sublist(0, 8);
-      final do8E = SecureMessaging.do8E(cc8);
-
+      Uint8List do8E = SecureMessaging.do8E(cc8);
       pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-      pcmd.ne = 0; // typical for protected AES APDUs
+
+      pcmd.ne = 256; // safer for some cards
     }
 
     return pcmd;
