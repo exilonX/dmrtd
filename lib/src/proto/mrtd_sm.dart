@@ -35,36 +35,42 @@ class MrtdSM extends SecureMessaging {
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
     _log.debug("Protecting APDU");
-    _log.verbose("  header=${cmd.rawHeader().hex()}");
-    _log.sdVerbose("  data=${cmd.data?.hex()}");
-    _log.verbose("  Le=${cmd.ne}");
-
-    // Increment SSC should be made before encrypting data
     _ssc.increment();
 
     final pcmd = maskCmd(cmd);
-    _log.verbose("masked APDU header=${pcmd.rawHeader().hex()}");
+    final header = pcmd.rawHeader();
 
-    final dataDO = generateDataDO(pcmd);
-    _log.verbose("Generated data DO=${dataDO.hex()}");
-
+    // Skip DO87 if no data (required for PACE/AES)
+    final dataDO = (cmd.data != null && cmd.data!.isNotEmpty)
+        ? generateDataDO(pcmd)
+        : Uint8List(0);
     final do97 = SecureMessaging.do97(pcmd.ne);
-    _log.verbose("Generated data DO97=${do97.hex()}, size=${do97.length}");
 
-    final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
-    _log.verbose("Generated M=${M.hex()} size=${M.length}");
+    Uint8List fullCC;
 
-    final N = generateN(M: M);
-    _log.verbose("Generated N=${N.hex()} size=${N.length}");
-    _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
+    if (cipher.type == CipherAlgorithm.DESede) {
+      // === BAC branch ===
+      final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
+      final N = generateN(M: M); // ISO9797 padded
+      fullCC = cipher.mac(N);
+    } else {
+      // === PACE AES branch ===
+      // No ISO9797 padding, CMAC handles it internally
+      final macInput = Uint8List.fromList([
+        ..._ssc.toBytes(),
+        ...header,
+        ...dataDO,
+        ...do97,
+      ]);
+      fullCC = cipher.mac(macInput);
+    }
 
-    final CC = cipher.mac(N);
-    final do8E = SecureMessaging.do8E(CC);
-    _log.verbose("Calculated CC=${CC.hex()}");
-    _log.verbose("Generated data DO8E=${do8E.hex()}");
+    final cc8 = fullCC.sublist(0, 8);
+    final do8E = SecureMessaging.do8E(cc8);
 
-    pcmd.data = Uint8List.fromList(dataDO + do97 + do8E);
-    pcmd.ne = 256; // serialized as 0x00
+    pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
+    pcmd.ne = 0; // typical for protected APDUs
+
     return pcmd;
   }
 
