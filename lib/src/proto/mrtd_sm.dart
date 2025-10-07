@@ -31,7 +31,6 @@ class MrtdSM extends SecureMessaging {
   SSC get ssc => _ssc;
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
-
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
     _log.debug("Protecting APDU");
@@ -41,19 +40,25 @@ class MrtdSM extends SecureMessaging {
     final header = pcmd.rawHeader();
 
     // Skip DO87 if no data (required for PACE/AES)
-    final dataDO = (cmd.data != null && cmd.data!.isNotEmpty)
-        ? generateDataDO(pcmd)
-        : Uint8List(0);
+    final dataDO = generateDataDO(pcmd);
     final do97 = SecureMessaging.do97(pcmd.ne);
 
     Uint8List fullCC;
 
     if (cipher.type == CipherAlgorithm.DESede) {
+      print("=== BAC DESede branch ===");
       // === BAC branch ===
       final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
       final N = generateN(M: M); // ISO9797 padded
       fullCC = cipher.mac(N);
+
+      // Keep BAC convention
+      final do8E = SecureMessaging.do8E(fullCC); // fullCC already 8 bytes
+      pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
+      pcmd.ne = 256; // encoded as 0x00
     } else {
+      print("=== PACE AES branch ===");
+
       // === PACE AES branch ===
       // No ISO9797 padding, CMAC handles it internally
       final macInput = Uint8List.fromList([
@@ -63,13 +68,12 @@ class MrtdSM extends SecureMessaging {
         ...do97,
       ]);
       fullCC = cipher.mac(macInput);
+      final cc8 = fullCC.sublist(0, 8);
+      final do8E = SecureMessaging.do8E(cc8);
+
+      pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
+      pcmd.ne = 0; // typical for protected AES APDUs
     }
-
-    final cc8 = fullCC.sublist(0, 8);
-    final do8E = SecureMessaging.do8E(cc8);
-
-    pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-    pcmd.ne = 0; // typical for protected APDUs
 
     return pcmd;
   }
