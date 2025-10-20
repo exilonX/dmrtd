@@ -41,9 +41,10 @@ class MrtdSM extends SecureMessaging {
 
     // Skip DO87 if no data (required for PACE/AES)
     final dataDO = generateDataDO(pcmd);
-    final do97 = SecureMessaging.do97(pcmd.ne);
+    final do97 = SecureMessaging.do97(pcmd.ne, cipherType: cipher.type);
 
     Uint8List fullCC;
+    Uint8List macFragment;
 
     if (cipher.type == CipherAlgorithm.DESede) {
       print("=== BAC DESede branch ===");
@@ -53,9 +54,7 @@ class MrtdSM extends SecureMessaging {
       fullCC = cipher.mac(N);
 
       // Keep BAC convention
-      final do8E = SecureMessaging.do8E(fullCC); // fullCC already 8 bytes
-      pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-      pcmd.ne = 256; // encoded as 0x00
+      macFragment = fullCC; // fullCC already 8 bytes
     } else {
       print("=== PACE AES branch ===");
 
@@ -65,14 +64,13 @@ class MrtdSM extends SecureMessaging {
         ...dataDO,
         ...do97,
       ]);
-      final paddedMacInput = ISO9797.pad(macInput, AES_BLOCK_SIZE);
-      fullCC = cipher.mac(paddedMacInput);
-      final cc8 = fullCC.sublist(0, 8);
-      Uint8List do8E = SecureMessaging.do8E(cc8);
-      pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-
-      pcmd.ne = 256; // safer for some cards
+      fullCC = cipher.mac(macInput);
+      macFragment = fullCC;
     }
+
+    final do8E = SecureMessaging.do8E(macFragment);
+    pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
+    pcmd.ne = 256; // encoded as 0x00 (safe default for most documents)
 
     return pcmd;
   }
@@ -94,14 +92,27 @@ class MrtdSM extends SecureMessaging {
     final do99 = parseDO99FromRAPDU(rapdu, (tvDataDO?.encodedLen ?? 0));
     final do8EStart = (tvDataDO?.encodedLen ?? 0) + do99.encodedLen;
     final do8E = parseDO8EFromRAPDU(rapdu, do8EStart);
-    final K = generateK(data: rapdu.data!.sublist(0, do8EStart));
-    final CC = cipher.mac(K);
 
-    _log.verbose("Generated K=${K.hex()}");
+    Uint8List macMaterial;
+    Uint8List CC;
+    if (cipher.type == CipherAlgorithm.DESede) {
+      macMaterial = generateK(data: rapdu.data!.sublist(0, do8EStart));
+      CC = cipher.mac(macMaterial);
+    } else {
+      macMaterial = Uint8List.fromList([
+        ..._ssc.toBytes(),
+        ...rapdu.data!.sublist(0, do8EStart),
+      ]);
+      CC = cipher.mac(macMaterial);
+    }
+
+    _log.verbose("MAC input=${macMaterial.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
     _log.verbose("APDU CC=${do8E.value.hex()}");
     _log.verbose("Calculated CC=${CC.hex()}");
-    if (!_eq(CC, do8E.value)) {
+
+    final expectedMacFragment = CC.sublist(0, do8E.value.length);
+    if (!_eq(expectedMacFragment, do8E.value)) {
       throw SMError("Invalid MAC of response APDU");
     }
 
