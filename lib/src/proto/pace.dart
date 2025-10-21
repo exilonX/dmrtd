@@ -1185,21 +1185,24 @@ class PACE {
         }
 
         // build the correct SSC as per ICAO‑9303 §9.8.7.3
-        final ssc = SSC.anotherPACE(
-          iccEphemeral: iccEphem,
-          ifdEphemeral: ifdEphem,
-        );
+        // final ssc = SSC.anotherPACE(
+        //   iccEphemeral: iccEphem,
+        //   ifdEphemeral: ifdEphem,
+        // );
         // final ssc = SSC.forRomanianEID();
         // ssc.increment(); // increment before first use
 
-        print("Initial SSC : ${ssc.toBytes().hex()}");
-
         // and finally plug it into your SM layer
-        final smCipher = (cipherAlgo == CipherAlgorithm.AES)
-            ? AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength)
-            : DES_SMCipher(encKey, macKey);
+        // final smCipher = (cipherAlgo == CipherAlgorithm.AES)
+        //     ? AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength)
+        //     : DES_SMCipher(encKey, macKey);
+        final ssc = AES_SSC();
+        icc.sm = MrtdSM(
+          AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength),
+          ssc, // 16 zero bytes per §9.8.7.3
+        );
 
-        icc.sm = MrtdSM(smCipher, ssc);
+        print("Initial SSC : ${ssc.toBytes().hex()}");
 
         _log.debug("... SM (with ECDH) session is set up.");
 
