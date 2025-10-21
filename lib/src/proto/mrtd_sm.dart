@@ -63,9 +63,11 @@ class MrtdSM extends SecureMessaging {
     } else {
       print("=== PACE AES branch ===");
 
+      final lcForMac = _encodeLc(dataDO.length + do97.length);
       final macInput = Uint8List.fromList([
         ..._ssc.toBytes(),
         ...header,
+        ...lcForMac,
         ...dataDO,
         ...do97,
       ]);
@@ -78,6 +80,16 @@ class MrtdSM extends SecureMessaging {
     pcmd.ne = originalNe;
 
     return pcmd;
+  }
+
+  Uint8List _encodeLc(int length) {
+    if (length == 0) {
+      return Uint8List(0);
+    }
+    if (length <= 0xFF) {
+      return Uint8List.fromList([length]);
+    }
+    return Uint8List.fromList([0x00, (length >> 8) & 0xFF, length & 0xFF]);
   }
 
   @override
@@ -120,7 +132,6 @@ class MrtdSM extends SecureMessaging {
     if (!_eq(expectedMacFragment, do8E.value)) {
       throw SMError("Invalid MAC of response APDU");
     }
-
     final data = decryptDataDO(tvDataDO);
     return ResponseAPDU(StatusWord.fromBytes(do99.value), data);
   }
