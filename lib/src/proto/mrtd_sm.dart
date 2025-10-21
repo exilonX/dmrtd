@@ -38,10 +38,13 @@ class MrtdSM extends SecureMessaging {
 
     final pcmd = maskCmd(cmd);
     final header = pcmd.rawHeader();
+    final bool hasLe = cmd.ne != 0;
 
     // Skip DO87 if no data (required for PACE/AES)
     final dataDO = generateDataDO(pcmd);
-    final do97 = SecureMessaging.do97(pcmd.ne, cipherType: cipher.type);
+    final do97 = hasLe
+        ? SecureMessaging.do97(pcmd.ne, cipherType: cipher.type)
+        : Uint8List(0);
 
     Uint8List fullCC;
     Uint8List macFragment;
@@ -70,7 +73,7 @@ class MrtdSM extends SecureMessaging {
 
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-    pcmd.ne = 256; // encoded as 0x00 (safe default for most documents)
+    pcmd.ne = hasLe ? 256 : 0; // encode Le only when requested
 
     return pcmd;
   }
