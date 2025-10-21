@@ -61,9 +61,6 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
-    // final do8EPlaceholder = SecureMessaging.do8E(Uint8List(8));
-    // final lcForMac =
-    //     _encodeLc(dataDO.length + do97.length + do8EPlaceholder.length);
     final dataForMac = Uint8List.fromList([...dataDO, ...do97]);
     final lcForMac = _encodeLc(dataForMac.length);
     final macInput = Uint8List.fromList([
@@ -72,15 +69,15 @@ class MrtdSM extends SecureMessaging {
       ...lcForMac,
       ...dataForMac,
     ]);
-    print("MAC input=${macInput.hex()}");
-    print("  used SSC=${_ssc.toBytes().hex()}");
+    _log.verbose("MAC input=${macInput.hex()}");
+    _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
     final fullCC = cipher.mac(macInput);
     final macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
-    print("MACFragment CC=${macFragment.hex()}");
+    _log.verbose("MACFragment CC=${macFragment.hex()}");
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = originalNe;
-    print("Protected APDU: ${pcmd.toString()}");
+    _log.verbose("Protected APDU: ${pcmd.toString()}");
     return pcmd;
   }
 
@@ -119,10 +116,13 @@ class MrtdSM extends SecureMessaging {
       CC = cipher.mac(macMaterial);
     } else {
       final header = _lastCommandHeader ?? Uint8List(4);
+      final responseBody = rapdu.data!.sublist(0, do8EStart);
+      final responseLc = _encodeLc(responseBody.length);
       macMaterial = Uint8List.fromList([
         ..._ssc.toBytes(),
         ...header,
-        ...rapdu.data!.sublist(0, do8EStart),
+        ...responseLc,
+        ...responseBody,
       ]);
       CC = cipher.mac(macMaterial);
     }
