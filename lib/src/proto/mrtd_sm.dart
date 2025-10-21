@@ -61,22 +61,26 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
-    final do8EPlaceholder = SecureMessaging.do8E(Uint8List(8));
-    final lcForMac =
-        _encodeLc(dataDO.length + do97.length + do8EPlaceholder.length);
+    // final do8EPlaceholder = SecureMessaging.do8E(Uint8List(8));
+    // final lcForMac =
+    //     _encodeLc(dataDO.length + do97.length + do8EPlaceholder.length);
+    final dataForMac = Uint8List.fromList([...dataDO, ...do97]);
+    final lcForMac = _encodeLc(dataForMac.length);
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
       ...header,
       ...lcForMac,
-      ...dataDO,
-      ...do97,
-      ...do8EPlaceholder,
+      ...dataForMac,
     ]);
+    print("MAC input=${macInput.hex()}");
+    print("  used SSC=${_ssc.toBytes().hex()}");
     final fullCC = cipher.mac(macInput);
     final macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
+    print("MACFragment CC=${macFragment.hex()}");
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = originalNe;
+    print("Protected APDU: ${pcmd.toString()}");
     return pcmd;
   }
 
