@@ -61,7 +61,12 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
-    final dataForMac = Uint8List.fromList([...dataDO, ...do97]);
+    final do8EPlaceholder = SecureMessaging.do8E(Uint8List(8));
+    final dataForMac = Uint8List.fromList([
+      ...dataDO,
+      ...do97,
+      ...do8EPlaceholder,
+    ]);
     final lcForMac = _encodeLc(dataForMac.length);
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
@@ -116,13 +121,10 @@ class MrtdSM extends SecureMessaging {
       CC = cipher.mac(macMaterial);
     } else {
       final header = _lastCommandHeader ?? Uint8List(4);
-      final responseBody = rapdu.data!.sublist(0, do8EStart);
-      final responseLc = _encodeLc(responseBody.length);
       macMaterial = Uint8List.fromList([
         ..._ssc.toBytes(),
         ...header,
-        ...responseLc,
-        ...responseBody,
+        ...rapdu.data!.sublist(0, do8EStart),
       ]);
       CC = cipher.mac(macMaterial);
     }
