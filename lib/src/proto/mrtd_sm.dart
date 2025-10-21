@@ -65,7 +65,7 @@ class MrtdSM extends SecureMessaging {
         ...do97,
       ]);
       fullCC = cipher.mac(macInput);
-      macFragment = fullCC.sublist(0, 8);
+      macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
     }
 
     final do8E = SecureMessaging.do8E(macFragment);
