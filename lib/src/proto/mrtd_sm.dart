@@ -29,6 +29,7 @@ class MrtdSM extends SecureMessaging {
   SSC _ssc;
   set ssc(final SSC ssc) => _ssc = ssc;
   SSC get ssc => _ssc;
+  Uint8List? _lastCommandHeader;
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
   @override
@@ -38,6 +39,7 @@ class MrtdSM extends SecureMessaging {
 
     final pcmd = maskCmd(cmd);
     final header = pcmd.rawHeader();
+    _lastCommandHeader = Uint8List.fromList(header);
     final int originalNe = cmd.ne;
     final bool hasLe = originalNe != 0;
 
@@ -48,37 +50,33 @@ class MrtdSM extends SecureMessaging {
         ? SecureMessaging.do97(originalNe, cipherType: cipher.type)
         : Uint8List(0);
 
-    Uint8List fullCC;
-    Uint8List macFragment;
-
     if (cipher.type == CipherAlgorithm.DESede) {
-      print("=== BAC DESede branch ===");
       // === BAC branch ===
       final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
       final N = generateN(M: M); // ISO9797 padded
-      fullCC = cipher.mac(N);
-
-      // Keep BAC convention
-      macFragment = fullCC; // fullCC already 8 bytes
-    } else {
-      print("=== PACE AES branch ===");
-
-      final lcForMac = _encodeLc(dataDO.length + do97.length);
-      final macInput = Uint8List.fromList([
-        ..._ssc.toBytes(),
-        ...header,
-        ...lcForMac,
-        ...dataDO,
-        ...do97,
-      ]);
-      fullCC = cipher.mac(macInput);
-      macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
+      final fullCC = cipher.mac(N);
+      final do8E = SecureMessaging.do8E(fullCC);
+      pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
+      pcmd.ne = originalNe;
+      return pcmd;
     }
 
+    final do8EPlaceholder = SecureMessaging.do8E(Uint8List(8));
+    final lcForMac =
+        _encodeLc(dataDO.length + do97.length + do8EPlaceholder.length);
+    final macInput = Uint8List.fromList([
+      ..._ssc.toBytes(),
+      ...header,
+      ...lcForMac,
+      ...dataDO,
+      ...do97,
+      ...do8EPlaceholder,
+    ]);
+    final fullCC = cipher.mac(macInput);
+    final macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = originalNe;
-
     return pcmd;
   }
 
@@ -116,8 +114,10 @@ class MrtdSM extends SecureMessaging {
       macMaterial = generateK(data: rapdu.data!.sublist(0, do8EStart));
       CC = cipher.mac(macMaterial);
     } else {
+      final header = _lastCommandHeader ?? Uint8List(4);
       macMaterial = Uint8List.fromList([
         ..._ssc.toBytes(),
+        ...header,
         ...rapdu.data!.sublist(0, do8EStart),
       ]);
       CC = cipher.mac(macMaterial);
@@ -184,7 +184,6 @@ class MrtdSM extends SecureMessaging {
     } else if (cipher.type == CipherAlgorithm.DESede) {
       return DESCipher.blockSize;
     } else {
-      _log.error("Unsupported cipher algorithm: ${cipher.type}");
       throw SMError("Unsupported cipher algorithm: ${cipher.type}");
     }
   }
