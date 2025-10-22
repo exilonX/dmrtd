@@ -29,7 +29,6 @@ class MrtdSM extends SecureMessaging {
   SSC _ssc;
   set ssc(final SSC ssc) => _ssc = ssc;
   SSC get ssc => _ssc;
-  Uint8List? _lastCommandHeader;
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
   @override
@@ -39,7 +38,6 @@ class MrtdSM extends SecureMessaging {
 
     final pcmd = maskCmd(cmd);
     final header = pcmd.rawHeader();
-    _lastCommandHeader = Uint8List.fromList(header);
     final int originalNe = cmd.ne;
     final bool hasLe = originalNe != 0;
 
@@ -61,18 +59,12 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
-    final do8EPlaceholder = SecureMessaging.do8E(Uint8List(8));
-    final dataForMac = Uint8List.fromList([
-      ...dataDO,
-      ...do97,
-      ...do8EPlaceholder,
-    ]);
-    final lcForMac = _encodeLc(dataForMac.length);
+    final paddedHeader = ISO9797.pad(header, blockLen());
+    final macBody = ISO9797.pad(
+        Uint8List.fromList([...paddedHeader, ...dataDO, ...do97]), blockLen());
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
-      ...header,
-      ...lcForMac,
-      ...dataForMac,
+      ...macBody,
     ]);
     _log.verbose("MAC input=${macInput.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
@@ -84,16 +76,6 @@ class MrtdSM extends SecureMessaging {
     pcmd.ne = originalNe;
     _log.verbose("Protected APDU: ${pcmd.toString()}");
     return pcmd;
-  }
-
-  Uint8List _encodeLc(int length) {
-    if (length == 0) {
-      return Uint8List(0);
-    }
-    if (length <= 0xFF) {
-      return Uint8List.fromList([length]);
-    }
-    return Uint8List.fromList([0x00, (length >> 8) & 0xFF, length & 0xFF]);
   }
 
   @override
@@ -120,11 +102,11 @@ class MrtdSM extends SecureMessaging {
       macMaterial = generateK(data: rapdu.data!.sublist(0, do8EStart));
       CC = cipher.mac(macMaterial);
     } else {
-      final header = _lastCommandHeader ?? Uint8List(4);
+      final responseBody = rapdu.data!.sublist(0, do8EStart);
+      final paddedBody = ISO9797.pad(responseBody, blockLen());
       macMaterial = Uint8List.fromList([
         ..._ssc.toBytes(),
-        ...header,
-        ...rapdu.data!.sublist(0, do8EStart),
+        ...paddedBody,
       ]);
       CC = cipher.mac(macMaterial);
     }
