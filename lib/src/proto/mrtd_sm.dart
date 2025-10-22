@@ -43,7 +43,7 @@ class MrtdSM extends SecureMessaging {
 
     // Skip DO87 if no data (required for PACE/AES)
     final dataDO = generateDataDO(pcmd);
-    final bool includeDo97 = hasLe || cipher.type == CipherAlgorithm.AES;
+    final bool includeDo97 = hasLe;
     final do97 = includeDo97
         ? SecureMessaging.do97(originalNe, cipherType: cipher.type)
         : Uint8List(0);
