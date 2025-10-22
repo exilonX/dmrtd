@@ -43,7 +43,10 @@ class MrtdSM extends SecureMessaging {
 
     // Skip DO87 if no data (required for PACE/AES)
     final dataDO = generateDataDO(pcmd);
-    final bool includeDo97 = hasLe || cipher.type == CipherAlgorithm.AES;
+    final bool isSelectByDfName = (cmd.ins == ISO7816_INS.SELECT_FILE &&
+        cmd.p1 == ISO97816_SelectFileP1.byDFName);
+    final bool includeDo97 =
+        !isSelectByDfName && (hasLe || cipher.type == CipherAlgorithm.AES);
     final do97 = includeDo97
         ? SecureMessaging.do97(originalNe, cipherType: cipher.type)
         : Uint8List(0);
@@ -59,12 +62,14 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
-    final paddedHeader = ISO9797.pad(header, blockLen());
-    final macBody = ISO9797.pad(
-        Uint8List.fromList([...paddedHeader, ...dataDO, ...do97]), blockLen());
+    final macBody = Uint8List.fromList([
+      ...header,
+      ...dataDO,
+      ...do97,
+    ]);
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
-      ...macBody,
+      ...ISO9797.pad(macBody, blockLen()),
     ]);
     _log.verbose("MAC input=${macInput.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
@@ -157,11 +162,7 @@ class MrtdSM extends SecureMessaging {
     if (cmd.data != null && cmd.data!.isNotEmpty) {
       final edata = cipher.encrypt(ISO9797.pad(cmd.data!, blockLen()),
           ssc: _ssc); // SSC is used only in AES
-      if (cmd.ins == ISO7816_INS.READ_BINARY_EXT) {
-        dataDO = SecureMessaging.do85(edata);
-      } else {
-        dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
-      }
+      dataDO = SecureMessaging.do87(edata, dataIsPadded: true);
     }
     return dataDO;
   }
