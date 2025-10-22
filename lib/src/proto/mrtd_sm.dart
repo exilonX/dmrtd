@@ -59,8 +59,9 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
+    final paddedHeader = ISO9797.pad(header, blockLen());
     final macBody = Uint8List.fromList([
-      ...header,
+      ...paddedHeader,
       ...dataDO,
       ...do97,
     ]);
