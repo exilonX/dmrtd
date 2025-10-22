@@ -43,10 +43,7 @@ class MrtdSM extends SecureMessaging {
 
     // Skip DO87 if no data (required for PACE/AES)
     final dataDO = generateDataDO(pcmd);
-    final bool isSelectByDfName = (cmd.ins == ISO7816_INS.SELECT_FILE &&
-        cmd.p1 == ISO97816_SelectFileP1.byDFName);
-    final bool includeDo97 =
-        !isSelectByDfName && (hasLe || cipher.type == CipherAlgorithm.AES);
+    final bool includeDo97 = hasLe || cipher.type == CipherAlgorithm.AES;
     final do97 = includeDo97
         ? SecureMessaging.do97(originalNe, cipherType: cipher.type)
         : Uint8List(0);
