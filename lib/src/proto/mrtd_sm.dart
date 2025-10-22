@@ -59,19 +59,19 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
+    // === PACE/AES branch ===
+    // For CMAC: Do NOT pad manually! CMAC handles padding internally with K1/K2 subkeys.
+    // Build N as: SSC || paddedHeader || DO'87 || DO'97
     final paddedHeader = ISO9797.pad(header, blockLen());
-    final macBody = Uint8List.fromList([
+    final macInput = Uint8List.fromList([
+      ..._ssc.toBytes(),
       ...paddedHeader,
       ...dataDO,
       ...do97,
     ]);
-    final macInput = Uint8List.fromList([
-      ..._ssc.toBytes(),
-      ...ISO9797.pad(macBody, blockLen()),
-    ]);
     _log.verbose("MAC input=${macInput.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
-    final fullCC = cipher.mac(macInput);
+    final fullCC = cipher.mac(macInput); // CMAC handles padding internally
     final macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
     _log.verbose("MACFragment CC=${macFragment.hex()}");
     final do8E = SecureMessaging.do8E(macFragment);
@@ -105,13 +105,14 @@ class MrtdSM extends SecureMessaging {
       macMaterial = generateK(data: rapdu.data!.sublist(0, do8EStart));
       CC = cipher.mac(macMaterial);
     } else {
+      // For CMAC: Do NOT pad manually! CMAC handles padding internally.
+      // Build MAC input as: SSC || DO'87/DO'85 || DO'99 (raw, no extra padding)
       final responseBody = rapdu.data!.sublist(0, do8EStart);
-      final paddedBody = ISO9797.pad(responseBody, blockLen());
       macMaterial = Uint8List.fromList([
         ..._ssc.toBytes(),
-        ...paddedBody,
+        ...responseBody,
       ]);
-      CC = cipher.mac(macMaterial);
+      CC = cipher.mac(macMaterial); // CMAC handles padding internally
     }
 
     _log.verbose("MAC input=${macMaterial.hex()}");
