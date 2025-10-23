@@ -96,9 +96,23 @@ class MrtdApi {
   /// Can throw [ComProviderError] in case connection with MRTD is lost.
   Future<void> selectEMrtdApplication() async {
     _log.debug("Selecting eMRTD application");
-    // Romanian eID cards may require ne=256 even for SELECT commands
-    await icc.selectFileByDFName(
-        dfName: DF1.AID, p2: _defaultSelectP2, ne: 256);
+
+    // Romanian eID quirk: Some cards reject SM-protected SELECT after PACE
+    // Try unprotected SELECT first
+    _log.debug("Trying unprotected SELECT for Romanian eID compatibility...");
+    final rapdu = await icc.transceiveRawUnprotected(CommandAPDU(
+      cla: ISO7816_CLA.NO_SM,
+      ins: ISO7816_INS.SELECT_FILE,
+      p1: ISO97816_SelectFileP1.byDFName,
+      p2: _defaultSelectP2,
+      data: DF1.AID,
+      ne: 256,
+    ));
+
+    if (rapdu.status.isError()) {
+      throw ICCError(
+          "SELECT eMRTD application failed", rapdu.status, rapdu.data);
+    }
   }
 
   /// Selects Master File (MF).
