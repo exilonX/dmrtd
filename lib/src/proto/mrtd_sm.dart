@@ -74,6 +74,7 @@ class MrtdSM extends SecureMessaging {
     _log.verbose("MAC input=${macInput.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
     final fullCC = cipher.mac(macInput);
+    _log.verbose("Full 16-byte CMAC=${fullCC.hex()}");
     final macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
     _log.verbose("MACFragment CC=${macFragment.hex()}");
     final do8E = SecureMessaging.do8E(macFragment);
