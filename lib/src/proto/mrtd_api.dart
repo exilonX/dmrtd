@@ -97,8 +97,11 @@ class MrtdApi {
   Future<void> selectEMrtdApplication() async {
     _log.debug("Selecting eMRTD application");
 
-    // Romanian eID quirk: Some cards reject SM-protected SELECT after PACE
-    // Try unprotected SELECT first
+    // Romanian eID quirk: Card does NOT support SM after PACE!
+    // Disable SM for all subsequent commands
+    _log.warning("DISABLING SM - Romanian eID does not support SM after PACE");
+    icc.sm = null;
+
     _log.debug("Trying unprotected SELECT for Romanian eID compatibility...");
     final rapdu = await icc.transceiveRawUnprotected(CommandAPDU(
       cla: ISO7816_CLA.NO_SM,
