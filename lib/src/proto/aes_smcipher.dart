@@ -90,9 +90,11 @@ class AES_SMCipher implements SMCipher {
 
   @override
   Uint8List mac(Uint8List data) {
-    _log.debug("mac: data size: ${data.length}");
+    _log.fine("mac: data size: ${data.length}");
+    _log.fine("mac: K_mac=${KSmac.hex()}");
     _log.sdVerbose("mac: data: ${data.hex()}, KSmac: ${KSmac.hex()}");
     Uint8List cmac = cipher.calculateCMAC(data: data, key: KSmac);
+    _log.fine("CMAC result: ${cmac.hex()}");
     _log.sdVerbose("CMAC: ${cmac.hex()}");
     return cmac;
   }
