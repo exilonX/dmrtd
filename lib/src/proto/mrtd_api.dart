@@ -110,6 +110,7 @@ class MrtdApi {
     // Try SM-protected SELECT first (standard behavior)
     try {
       _log.debug("Attempting SM-protected SELECT...");
+      _log.debug("Original selectCmd before transceiveApdu: $selectCmd");
       await icc.transceiveApdu(selectCmd);
       _log.debug("SELECT succeeded with SM protection");
     } on ICCError catch (e) {
@@ -119,7 +120,19 @@ class MrtdApi {
             "SM-protected SELECT failed (6988) - Romanian eID quirk detected!");
         _log.debug(
             "Retrying SELECT WITHOUT SM protection (READ commands will still use SM)...");
-        final rapdu = await icc.transceiveRawUnprotected(selectCmd);
+
+        // Create a FRESH unprotected SELECT command (selectCmd might have been corrupted)
+        final unprotectedSelect = CommandAPDU(
+          cla: ISO7816_CLA.NO_SM,
+          ins: ISO7816_INS.SELECT_FILE,
+          p1: ISO97816_SelectFileP1.byDFName,
+          p2: _defaultSelectP2,
+          data: DF1.AID,
+          ne: 256,
+        );
+        _log.debug("Fresh unprotected SELECT: $unprotectedSelect");
+
+        final rapdu = await icc.transceiveRawUnprotected(unprotectedSelect);
         if (rapdu.status.isError()) {
           throw ICCError("SELECT eMRTD application failed (unprotected)",
               rapdu.status, rapdu.data);
