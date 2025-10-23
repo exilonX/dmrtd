@@ -97,24 +97,38 @@ class MrtdApi {
   Future<void> selectEMrtdApplication() async {
     _log.debug("Selecting eMRTD application");
 
-    // Romanian eID quirk: Card does NOT support SM after PACE!
-    // Disable SM for all subsequent commands
-    _log.warning("DISABLING SM - Romanian eID does not support SM after PACE");
-    icc.sm = null;
-
-    _log.debug("Trying unprotected SELECT for Romanian eID compatibility...");
-    final rapdu = await icc.transceiveRawUnprotected(CommandAPDU(
+    final selectCmd = CommandAPDU(
       cla: ISO7816_CLA.NO_SM,
       ins: ISO7816_INS.SELECT_FILE,
       p1: ISO97816_SelectFileP1.byDFName,
       p2: _defaultSelectP2,
       data: DF1.AID,
       ne: 256,
-    ));
+    );
 
-    if (rapdu.status.isError()) {
-      throw ICCError(
-          "SELECT eMRTD application failed", rapdu.status, rapdu.data);
+    // Romanian eID quirk: SELECT must be unprotected, but READ commands need SM!
+    // Try SM-protected SELECT first (standard behavior)
+    try {
+      _log.debug("Attempting SM-protected SELECT...");
+      await icc.transceiveApdu(selectCmd);
+      _log.debug("SELECT succeeded with SM protection");
+    } on ICCError catch (e) {
+      // If SM-protected SELECT fails with 6988 (Romanian eID quirk), retry unprotected
+      if (e.sw == StatusWord(sw1: 0x69, sw2: 0x88)) {
+        _log.warning(
+            "SM-protected SELECT failed (6988) - Romanian eID quirk detected!");
+        _log.debug(
+            "Retrying SELECT WITHOUT SM protection (READ commands will still use SM)...");
+        final rapdu = await icc.transceiveRawUnprotected(selectCmd);
+        if (rapdu.status.isError()) {
+          throw ICCError("SELECT eMRTD application failed (unprotected)",
+              rapdu.status, rapdu.data);
+        }
+        _log.debug("SELECT succeeded WITHOUT SM protection");
+      } else {
+        // Some other error, rethrow
+        rethrow;
+      }
     }
   }
 
