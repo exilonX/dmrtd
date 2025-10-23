@@ -167,6 +167,19 @@ class AESCipher {
   }) {
     // ← use your FixedCMac (which always uses a block-sized zero IV)
     final cmac = FixedCMac.fromCipher(BlockCipher('AES'));
+    _log.finest(
+        "AESCipher.calculateCMAC; data size: ${data.length}, data: ${data.hex()}");
+    _log.sdVerbose(
+        "AESCipher.calculateCMAC; data: ${data.hex()}, key size: ${key.length}, key: ${key.hex()}");
+
+    print("=== AESCipher.calculateCMAC ENTRY ===");
+    print("Input data length: ${data.length}");
+    print("Input data: ${data.hex()}");
+    print("Key length: ${key.length}");
+    print("Key: ${key.hex()}");
+    print("FixedCMac algorithm: ${cmac.algorithmName}");
+    print("FixedCMac macSize property: ${cmac.macSize}");
+
     cmac.init(KeyParameter(key));
 
     // either:
@@ -174,7 +187,14 @@ class AESCipher {
     // or be explicit:
     cmac.update(data, 0, data.length);
     final out = Uint8List(cmac.macSize);
-    cmac.doFinal(out, 0);
+    print("Allocated output buffer size: ${out.length}");
+
+    final bytesWritten = cmac.doFinal(out, 0);
+    print("Bytes written by doFinal: $bytesWritten");
+    print("Output MAC length: ${out.length}");
+    print("Output MAC: ${out.hex()}");
+    print("=== AESCipher.calculateCMAC EXIT ===");
+
     return out;
   }
 }

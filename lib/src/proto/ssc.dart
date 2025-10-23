@@ -97,6 +97,7 @@ class SSC {
   }
 
   void increment() {
+    final sscBytesBefore = toBytes();
     final sscBytes = toBytes();
     var carry = 1;
     for (var i = sscBytes.length - 1; i >= 0; i--) {
@@ -106,6 +107,9 @@ class SSC {
       if (carry == 0) break;
     }
     _ssc = BigInt.parse(sscBytes.hex(), radix: 16);
+    print("=== SSC.increment() ===");
+    print("Before: ${sscBytesBefore.hex()}");
+    print("After:  ${toBytes().hex()}");
   }
 
   Uint8List toBytes() {
@@ -125,5 +129,11 @@ class DESede_PACE_SSC extends SSC {
 
 class AES_SSC extends SSC {
   // icao 9303 p11 doc section 9.8.7.3 specifies that AES SSC is 16 bytes long and is initialized to 0.
-  AES_SSC() : super(Uint8List(16), AESCipher128().size * 8);
+  AES_SSC() : super(Uint8List(16), AESCipher128().size * 8) {
+    print("=== AES_SSC CONSTRUCTOR ===");
+    print("Initialized to: ${toBytes().hex()}");
+    print("Bit size: $bitSize");
+    print("Byte size: ${bitSize / 8}");
+    print("=== AES_SSC CREATED ===");
+  }
 }

@@ -19,6 +19,7 @@ import '../crypto/iso9797.dart';
 import '../lds/tlv.dart';
 import '../crypto/aes.dart';
 import '../crypto/des.dart';
+import 'aes_smcipher.dart';
 
 /// Class defines secure messaging protocol as specified in ICAO 9303 p11.
 class MrtdSM extends SecureMessaging {
@@ -30,7 +31,18 @@ class MrtdSM extends SecureMessaging {
   set ssc(final SSC ssc) => _ssc = ssc;
   SSC get ssc => _ssc;
 
-  MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher);
+  MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher) {
+    print("=== MrtdSM CONSTRUCTOR ===");
+    print("SMCipher type: ${smCipher.runtimeType}");
+    print("Cipher algorithm: ${smCipher.type}");
+    print("Initial SSC: ${_ssc.toBytes().hex()}");
+    print("SSC bit size: ${_ssc.bitSize}");
+    if (smCipher is AES_SMCipher) {
+      print("AES_SMCipher K_enc: ${smCipher.KSenc.hex()}");
+      print("AES_SMCipher K_mac: ${smCipher.KSmac.hex()}");
+    }
+    print("=== MrtdSM INITIALIZED ===");
+  }
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
     _log.debug("Protecting APDU");
@@ -73,10 +85,26 @@ class MrtdSM extends SecureMessaging {
     ]);
     _log.verbose("MAC input=${macInput.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
+
+    print("=== MrtdSM.protect() calling cipher.mac() ===");
+    print("MAC input length: ${macInput.length}");
+    print("MAC input: ${macInput.hex()}");
+
     final fullCC = cipher.mac(macInput);
+
+    print("Back from cipher.mac()");
+    print("fullCC length: ${fullCC.length}");
+    print("fullCC: ${fullCC.hex()}");
+
+    if (fullCC.length != 16) {
+      print("*** WARNING: Expected 16 bytes, got ${fullCC.length} bytes! ***");
+    }
+
     _log.verbose("Full 16-byte CMAC=${fullCC.hex()}");
     final macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
     _log.verbose("MACFragment CC=${macFragment.hex()}");
+    print("Truncated to 8 bytes: ${macFragment.hex()}");
+
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = originalNe;

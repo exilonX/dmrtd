@@ -509,32 +509,46 @@ class PACE {
     KEY_LENGTH keyLength = paceProtocol.keyLength;
     CipherAlgorithm cipherAlgorithm = paceProtocol.cipherAlgoritm;
 
+    print("=== PACE.cacluateEncKey() ENTRY ===");
+    print("Seed (shared secret): ${seed.hex()}");
+    print("Key length: $keyLength");
+    print("Cipher algorithm: $cipherAlgorithm");
+
     _log.debug("f");
     _log.sdDebug("Seed: ${seed.hex()}, "
         "Key length: $keyLength, "
         "Cipher algorithm: $cipherAlgorithm");
 
+    Uint8List derivedKey;
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       if (keyLength == KEY_LENGTH.s128) {
         _log.debug("Cipher algorithm: AES, Key length: 128 bits");
-        return DeriveKey.aes128(seed, paceMode: true);
+        print("Calling DeriveKey.aes128()...");
+        derivedKey = DeriveKey.aes128(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s192) {
         _log.debug("Cipher algorithm: AES, Key length: 192 bits");
-        return DeriveKey.aes192(seed, paceMode: true);
+        print("Calling DeriveKey.aes192()...");
+        derivedKey = DeriveKey.aes192(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s256) {
         _log.debug("Cipher algorithm: AES, Key length: 256 bits");
-        return DeriveKey.aes256(seed, paceMode: true);
+        print("Calling DeriveKey.aes256()...");
+        derivedKey = DeriveKey.aes256(seed, paceMode: true);
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      return DeriveKey.desEDE(seed, paceMode: true);
+      print("Calling DeriveKey.desEDE()...");
+      derivedKey = DeriveKey.desEDE(seed, paceMode: true);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
     }
+
+    print("Derived K_enc: ${derivedKey.hex()}");
+    print("=== PACE.cacluateEncKey() EXIT ===");
+    return derivedKey;
   }
 
   static Uint8List cacluateMacKey(
@@ -542,32 +556,46 @@ class PACE {
     KEY_LENGTH keyLength = paceProtocol.keyLength;
     CipherAlgorithm cipherAlgorithm = paceProtocol.cipherAlgoritm;
 
+    print("=== PACE.cacluateMacKey() ENTRY ===");
+    print("Seed (shared secret): ${seed.hex()}");
+    print("Key length: $keyLength");
+    print("Cipher algorithm: $cipherAlgorithm");
+
     _log.debug("Calculating MAC key ...");
     _log.sdDebug("Seed: ${seed.hex()}, "
         "Key length: $keyLength, "
         "Cipher algorithm: $cipherAlgorithm");
 
+    Uint8List derivedKey;
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       if (keyLength == KEY_LENGTH.s128) {
         _log.debug("Cipher algorithm: AES, Key length: 128 bits");
-        return DeriveKey.cmac128(seed, paceMode: true);
+        print("Calling DeriveKey.cmac128()...");
+        derivedKey = DeriveKey.cmac128(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s192) {
         _log.debug("Cipher algorithm: AES, Key length: 192 bits");
-        return DeriveKey.cmac192(seed, paceMode: true);
+        print("Calling DeriveKey.cmac192()...");
+        derivedKey = DeriveKey.cmac192(seed, paceMode: true);
       } else if (keyLength == KEY_LENGTH.s256) {
         _log.debug("Cipher algorithm: AES, Key length: 256 bits");
-        return DeriveKey.cmac256(seed, paceMode: true);
+        print("Calling DeriveKey.cmac256()...");
+        derivedKey = DeriveKey.cmac256(seed, paceMode: true);
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      return DeriveKey.desEDE(seed, paceMode: true);
+      print("Calling DeriveKey.desEDE()...");
+      derivedKey = DeriveKey.desEDE(seed, paceMode: true);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
     }
+
+    print("Derived K_mac: ${derivedKey.hex()}");
+    print("=== PACE.cacluateMacKey() EXIT ===");
+    return derivedKey;
   }
 
   static Uint8List cacluate_K_PI_Key121(
@@ -1006,10 +1034,16 @@ class PACE {
             fieldSizeInBytes - xBytes.length, fieldSizeInBytes, xBytes);
         _log.sdVerbose("Seed (x-coordinate of shared secret): ${seed.hex()}");
 
+        print("=== KEY DERIVATION FROM SHARED SECRET ===");
+        print("Shared secret (seed/K): ${seed.hex()}");
+
         Uint8List encKey =
             PACE.cacluateEncKey(paceProtocol: paceProtocol, seed: seed);
         Uint8List macKey =
             PACE.cacluateMacKey(paceProtocol: paceProtocol, seed: seed);
+
+        print("Derived K_enc: ${encKey.hex()}");
+        print("Derived K_mac: ${macKey.hex()}");
 
         _log.debug("ENC and Mac keys are successfully calculated");
         _log.sdVerbose("ENC key: ${encKey.hex()} "
@@ -1197,6 +1231,13 @@ class PACE {
         //     ? AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength)
         //     : DES_SMCipher(encKey, macKey);
         final ssc = AES_SSC();
+
+        print("=== SM KEY SETUP DEBUG ===");
+        print("K_enc (${encKey.length} bytes): ${encKey.hex()}");
+        print("K_mac (${macKey.length} bytes): ${macKey.hex()}");
+        print("Key length enum: ${paceProtocol.keyLength}");
+        print("SSC initial value: ${ssc.toBytes().hex()}");
+
         icc.sm = MrtdSM(
           AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength),
           ssc, // 16 zero bytes per §9.8.7.3

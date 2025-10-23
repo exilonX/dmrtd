@@ -9,6 +9,7 @@ import 'package:pointycastle/src/registry/registry.dart';
 import 'package:pointycastle/src/impl/base_mac.dart';
 import 'package:pointycastle/paddings/iso7816d4.dart';
 import 'package:pointycastle/block/modes/cbc.dart';
+import '../../extensions.dart';
 
 /// FixedCMAC - as specified at www.nuee.nagoya-u.ac.jp/labs/tiwata/omac/omac.html
 /// <p>
@@ -182,6 +183,11 @@ class FixedCMac extends BaseMac {
 
   @override
   void init(covariant KeyParameter keyParams) {
+    print("=== FixedCMac.init() ENTRY ===");
+    print("Cipher block size: ${_cipher.blockSize}");
+    print("_macSize field: $_macSize");
+    print("macSize property: $macSize");
+
     final zeroIV = Uint8List(_cipher.blockSize);
     _params = ParametersWithIV(keyParams, zeroIV);
 
@@ -193,6 +199,10 @@ class FixedCMac extends BaseMac {
     _cipher.processBlock(_zeros, 0, L, 0);
     _lu = _doubleLu(L);
     _lu2 = _doubleLu(_lu);
+
+    print("K1 (_lu): ${_lu.hex()}");
+    print("K2 (_lu2): ${_lu2.hex()}");
+    print("=== FixedCMac.init() EXIT ===");
 
     // Reset _buf/_cipher state after computing L, Lu, Lu2
     reset();
@@ -246,10 +256,19 @@ class FixedCMac extends BaseMac {
   int doFinal(Uint8List out, int outOff) {
     var blockSize = _cipher.blockSize;
 
+    print("=== FixedCMac.doFinal ENTRY ===");
+    print("Block size: $blockSize");
+    print("Buffer offset (_bufOff): $_bufOff");
+    print("MAC size (_macSize): $_macSize");
+    print("Internal _mac buffer length: ${_mac.length}");
+
     Uint8List? lu;
     if (_bufOff == blockSize) {
+      print("Last block is complete, using K1 (_lu)");
       lu = _lu;
     } else {
+      print(
+          "Last block is incomplete, applying ISO7816d4 padding and using K2 (_lu2)");
       ISO7816d4Padding().addPadding(_buf, _bufOff);
       lu = _lu2;
     }
@@ -260,7 +279,13 @@ class FixedCMac extends BaseMac {
 
     _cipher.processBlock(_buf, 0, _mac, 0);
 
+    print("Internal _mac (full block): ${_mac.hex()}");
+    print("Copying $_macSize bytes to output starting at offset $outOff");
+
     out.setRange(outOff, outOff + _macSize, _mac);
+
+    print("Output buffer after copy: ${out.hex()}");
+    print("=== FixedCMac.doFinal EXIT (returning $_macSize) ===");
 
     reset();
 
