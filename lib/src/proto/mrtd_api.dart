@@ -96,7 +96,9 @@ class MrtdApi {
   /// Can throw [ComProviderError] in case connection with MRTD is lost.
   Future<void> selectEMrtdApplication() async {
     _log.debug("Selecting eMRTD application");
-    await icc.selectFileByDFName(dfName: DF1.AID, p2: _defaultSelectP2);
+    // Romanian eID cards may require ne=256 even for SELECT commands
+    await icc.selectFileByDFName(
+        dfName: DF1.AID, p2: _defaultSelectP2, ne: 256);
   }
 
   /// Selects Master File (MF).
