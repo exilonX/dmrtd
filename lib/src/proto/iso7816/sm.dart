@@ -51,14 +51,15 @@ abstract class SecureMessaging {
   static Uint8List do97(final int? ne, {CipherAlgorithm? cipherType}) {
     final int expectedLength = ne ?? 0;
 
-    // For both BAC (DESede) and PACE (AES): omit DO97 if Le == 0
-    if (expectedLength == 0) {
+    // For BAC (DESede): omit DO97 if Le == 0
+    if (cipherType == CipherAlgorithm.DESede && expectedLength == 0) {
       return Uint8List(0);
     }
 
     if (expectedLength == 256) {
       return TLV.encode(tagDO97, Uint8List.fromList([0x00]));
     }
+
     if (expectedLength == 65536) {
       return TLV.encode(tagDO97, Uint8List.fromList([0x00, 0x00]));
     }

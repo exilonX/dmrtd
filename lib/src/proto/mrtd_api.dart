@@ -96,12 +96,7 @@ class MrtdApi {
   /// Can throw [ComProviderError] in case connection with MRTD is lost.
   Future<void> selectEMrtdApplication() async {
     _log.debug("Selecting eMRTD application");
-    await icc.selectFile(
-        cla: ISO7816_CLA.NO_SM,
-        p1: ISO97816_SelectFileP1.byDFName,
-        p2: _defaultSelectP2,
-        data: DF1.AID,
-        ne: 256);
+    await icc.selectFileByDFName(dfName: DF1.AID, p2: _defaultSelectP2);
   }
 
   /// Selects Master File (MF).
