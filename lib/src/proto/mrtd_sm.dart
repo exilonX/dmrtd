@@ -72,15 +72,22 @@ class MrtdSM extends SecureMessaging {
     }
 
     // === PACE/AES branch ===
-    // Build MAC input as: pad(SSC || CmdHeader || DO'87 || DO'97)
-    // Per ICAO 9303-11 section 9.8.7.1, DO NOT pad header separately!
+    // Per ICAO 9303-11: MAC input = SSC || pad16(masked_header) || DO87 || DO97, then M2 pad
+    // The masked header MUST be padded to 16 bytes BEFORE concatenation with DOs
+    final paddedHeader = ISO9797.pad(header, blockLen()); // => 16 bytes
+
+    // Build body with padded header + present DOs
     final macBody = Uint8List.fromList([
-      ..._ssc.toBytes(),
-      ...header, // Raw header, NOT padded
-      ...dataDO,
-      ...do97,
+      ...paddedHeader, // padded masked header (16 bytes)
+      ...dataDO, // DO87 if data present
+      ...do97, // DO97 if Le present
     ]);
-    final macInput = ISO9797.pad(macBody, blockLen());
+
+    // MAC input is SSC || pad16(macBody)
+    final macInput = Uint8List.fromList([
+      ..._ssc.toBytes(), // 16 bytes
+      ...ISO9797.pad(macBody, blockLen()), // padded body
+    ]);
 
     _log.verbose("MAC input=${macInput.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
