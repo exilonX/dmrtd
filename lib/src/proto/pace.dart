@@ -1271,7 +1271,7 @@ class PACE {
 
         icc.sm = MrtdSM(
           AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength),
-          ssc, // 16 zero bytes per §9.8.7.3
+          ssc, // SSC derived from ephemeral keys per BSI TR-03110
         );
 
         print("Initial SSC : ${ssc.toBytes().hex()}");
