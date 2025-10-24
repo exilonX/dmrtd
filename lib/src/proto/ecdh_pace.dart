@@ -161,6 +161,11 @@ class ECDHPace {
     _pub = ECPublicKey(domainParameters.G * _priv!.d, domainParameters);
   }
 
+  // Alias for generateKeyPairFromPriv for test purposes
+  void setKeyPair({required Uint8List private}) {
+    generateKeyPairFromPriv(privKey: private);
+  }
+
   ECPublicKey transformPublic({required PublicKeyPACEeCDH pubKey}) {
     // this function is used for converting received public key (from ICC) to ECPublicKey
     _log.fine(

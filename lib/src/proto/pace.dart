@@ -16,6 +16,7 @@ import "package:dmrtd/src/proto/des_smcipher.dart";
 import 'package:dmrtd/src/proto/mrtd_sm.dart';
 import 'package:dmrtd/src/crypto/des.dart';
 import 'package:pointycastle/asn1/primitives/asn1_object_identifier.dart';
+import 'package:dmrtd/src/proto/pace_test_config.dart';
 
 import 'package:logging/logging.dart';
 import 'package:pointycastle/asn1.dart';
@@ -867,8 +868,22 @@ class PACE {
         _log.debug("Starting PACE step 2 ...");
         domainParameter = DomainParameterSelectorECDH.getDomainParameter(
             id: paceDomainParameterId);
-        //generating key pair
-        domainParameter.generateKeyPair();
+
+        // Check if we should use deterministic keys for testing
+        if (PaceTestConfig.useDeterministicKeys &&
+            PaceTestConfig.step2PrivateKey != null) {
+          _log.warning(
+              "⚠️  USING DETERMINISTIC KEYS FOR STEP 2 (TEST MODE ONLY)");
+          _log.warning(
+              "Step 2 private key: ${PaceTestConfig.step2PrivateKey!.hex()}");
+
+          // Use setKeyPair to inject the deterministic private key
+          domainParameter.setKeyPair(private: PaceTestConfig.step2PrivateKey!);
+        } else {
+          // Normal random key generation
+          domainParameter.generateKeyPair();
+        }
+
         //get public key
         PublicKeyPACEeCDH publicKeyPaceTerminal = domainParameter.getPubKey();
         final pubKeyBytes = publicKeyPaceTerminal.toBytes();
@@ -932,8 +947,24 @@ class PACE {
 
         _log.sdVerbose(
             "Generator point: ${ECDHPace.ecPointToList(point: generatorPoint, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
-        domainParameter.generateKeyPairWithCustomGenerator(
-            mappedGenerator: generatorPoint);
+
+        // Check if we should use deterministic keys for testing
+        if (PaceTestConfig.useDeterministicKeys &&
+            PaceTestConfig.step3PrivateKey != null) {
+          _log.warning(
+              "⚠️  USING DETERMINISTIC KEYS FOR STEP 3 (TEST MODE ONLY)");
+          _log.warning(
+              "Step 3 private key: ${PaceTestConfig.step3PrivateKey!.hex()}");
+
+          // Use setEphemeralKeyPair to inject the deterministic private key
+          domainParameter.setEphemeralKeyPair(
+              private: PaceTestConfig.step3PrivateKey!,
+              mappedGenerator: generatorPoint);
+        } else {
+          // Normal random key generation
+          domainParameter.generateKeyPairWithCustomGenerator(
+              mappedGenerator: generatorPoint);
+        }
 
         //get public key
         PublicKeyPACEeCDH publicKeyEphemeralPaceTerminal =
