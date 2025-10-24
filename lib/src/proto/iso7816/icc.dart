@@ -170,7 +170,8 @@ class ICC {
         ins: ISO7816_INS.GENERAL_AUTHENTICATE,
         p1: 0x00,
         p2: 0x00,
-        data: data));
+        data: data,
+        ne: ne)); // ← FIX: Pass ne parameter to CommandAPDU!
 
     if (rapdu.status.sw1 == StatusWord.sw1SuccessWithRemainingBytes) {
       _log.warning(
