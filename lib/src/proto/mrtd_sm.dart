@@ -52,19 +52,20 @@ class MrtdSM extends SecureMessaging {
     final header = pcmd.rawHeader();
     final int originalNe = cmd.ne;
 
-    // For PACE/AES: always set ne=256 (Le=0x00) to expect arbitrary-length response
-    // This must be done BEFORE generating DO'97
-    final bool isPaceAes = cipher.type == CipherAlgorithm.AES;
-    final int effectiveNe = isPaceAes ? 256 : originalNe;
-
     // Skip DO87 if no data (required for PACE/AES)
     final dataDO = generateDataDO(pcmd);
-    final bool expectsResponse =
-        (cmd.ne != 0) || isPaceAes; // SELECT typically expects data
-    final bool includeDo97 = expectsResponse;
-// For PACE/AES case-4: DO’97’ = 97 01 00
-    final do97 =
-        includeDo97 ? Uint8List.fromList([0x97, 0x01, 0x00]) : Uint8List(0);
+
+    // Only include DO'97' in MAC if the original command expects a response (ne != 0)
+    final bool includeDo97 = (originalNe != 0);
+
+    // For PACE/AES: DO'97' encoding (when included)
+    // - ne=256 or ne=65536 → 97 01 00 or 97 02 00 00
+    // - other values → 97 <len> <value>
+    final do97 = includeDo97
+        ? (originalNe == 256
+            ? Uint8List.fromList([0x97, 0x01, 0x00])
+            : SecureMessaging.do97(originalNe, cipherType: cipher.type))
+        : Uint8List(0);
 
     if (cipher.type == CipherAlgorithm.DESede) {
       // === BAC branch ===
@@ -123,8 +124,9 @@ class MrtdSM extends SecureMessaging {
 
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-    // For PACE/AES: Le is encoded inside DO'97', so no trailing Le byte on wire
-    pcmd.ne = 0;
+    // JMRTD appends Le=00 for all protected APDUs (even when DO'97' is omitted)
+    // This provides case-4 framing that many cards expect
+    pcmd.ne = 256; // Encodes as trailing 0x00 byte on wire
     _log.verbose("Protected APDU: ${pcmd.toString()}");
     return pcmd;
   }
