@@ -83,6 +83,10 @@ class MrtdSM extends SecureMessaging {
       ...do97, // DO97 if Le present
     ]);
 
+    _log.verbose("paddedHeader=${paddedHeader.hex()}");
+    _log.verbose("dataDO=${dataDO.hex()}");
+    _log.verbose("do97=${do97.hex()}");
+
     // MAC input is SSC || pad16(macBody)
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(), // 16 bytes
@@ -113,7 +117,7 @@ class MrtdSM extends SecureMessaging {
 
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-    pcmd.ne = originalNe;
+    pcmd.ne = 0;
     _log.verbose("Protected APDU: ${pcmd.toString()}");
     return pcmd;
   }
