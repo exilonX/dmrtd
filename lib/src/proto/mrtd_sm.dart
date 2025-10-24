@@ -117,7 +117,8 @@ class MrtdSM extends SecureMessaging {
 
     final do8E = SecureMessaging.do8E(macFragment);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-    pcmd.ne = 0;
+    // For Case 4 Short: ne=256 encodes as Le=0x00 (arbitrary length response)
+    pcmd.ne = 256;
     _log.verbose("Protected APDU: ${pcmd.toString()}");
     return pcmd;
   }
