@@ -1,7 +1,8 @@
 // Example of how to use deterministic PACE keys for debugging
 // This allows exact reproduction of JMRTD sessions
 
-import 'package:dmrtd/src/proto/pace_test_config.dart';
+// Import from the main library (not from src/)
+import 'package:dmrtd/dmrtd.dart';
 
 void setupJmrtdReproduction() {
   // Keys extracted from JMRTD log (2025-10-24 17:03:39)
