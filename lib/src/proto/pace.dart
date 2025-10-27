@@ -945,10 +945,12 @@ class PACE {
           _log.debug(
               "Checking if computed auth token is the same as auth token from ICC");
 
+          // For verification, we need to calculate CMAC over ICC's ephemeral public key
+          // because the ICC calculated its auth token over its own ephemeral public key
           Uint8List calcInputDataTerminalforCheck =
               PACE.generateEncodingInputData(
                   cryptographicMechanism: paceProtocol,
-                  publicKeyToSign: domainParameter.getPubKeyEphemeral());
+                  publicKeyToSign: ephemeralPublicICCenvelope);
 
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
@@ -1132,10 +1134,12 @@ class PACE {
           apduStep4Pace.parse();
           Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
 
+          // For verification, we need to calculate CMAC over ICC's ephemeral public key
+          // because the ICC calculated its auth token over its own ephemeral public key
           Uint8List calcInputDataTerminalforCheck =
               PACE.generateEncodingInputData(
                   cryptographicMechanism: paceProtocol,
-                  publicKeyToSign: domainParameter.getPubKeyEphemeral());
+                  publicKeyToSign: ephemeralPublicICCenvelope);
 
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
