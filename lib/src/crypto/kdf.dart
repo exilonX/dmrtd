@@ -42,18 +42,21 @@ class DeriveKey {
   }
 
   /// Returns key for CMAC-128 derived from [keySeed] bytes and counter mode 2.
+  /// Note: Always uses counter=2, regardless of paceMode flag.
   static Uint8List cmac128(final Uint8List keySeed,
       {final bool paceMode = false}) {
     return derive(DeriveKeyType.CMAC128, keySeed);
   }
 
   /// Returns key for CMAC-192 derived from [keySeed] bytes and counter mode 2.
+  /// Note: Always uses counter=2, regardless of paceMode flag.
   static Uint8List cmac192(final Uint8List keySeed,
       {final bool paceMode = false}) {
     return derive(DeriveKeyType.CMAC192, keySeed);
   }
 
   /// Returns key for CMAC-256 derived from [keySeed] bytes and counter mode 2.
+  /// Note: Always uses counter=2, regardless of paceMode flag.
   static Uint8List cmac256(final Uint8List keySeed,
       {final bool paceMode = false}) {
     return derive(DeriveKeyType.CMAC256, keySeed);
@@ -90,6 +93,8 @@ class DeriveKey {
   /// Returns key from [keySeed] bytes for specific [keyType] and
   /// counter mode specific for key type (1 - ENC mode, 2 - MAC mode).
   /// If [paceMode] is true counter 3 for encryption key types.
+  /// NOTE: Despite ICAO 9303-11 suggesting counter=3 for PACE encryption,
+  /// JMRTD uses counter=1 for both BAC and PACE. We follow JMRTD's implementation.
   static Uint8List derive(final DeriveKeyType keyType, final Uint8List keySeed,
       {final bool paceMode = false}) {
     Int32 mode;
@@ -99,16 +104,17 @@ class DeriveKey {
       case DeriveKeyType.AES128:
       case DeriveKeyType.AES192:
       case DeriveKeyType.AES256:
-        // It's an Encryption Key
-        mode = Int32(paceMode ? 3 : 1); // Use counter 3 for PACE, 1 for BAC
+        // Encryption Key - always use counter 1
+        // (JMRTD uses c=1 for both BAC and PACE, despite ICAO suggesting c=3 for PACE)
+        mode = Int32(1);
         break;
 
       case DeriveKeyType.ISO9797MacAlg3:
       case DeriveKeyType.CMAC128:
       case DeriveKeyType.CMAC192:
       case DeriveKeyType.CMAC256:
-        // It's a MAC Key
-        mode = Int32(paceMode ? 4 : 2); // Use counter 4 for PACE, 2 for BAC
+        // MAC Key - always use counter 2
+        mode = Int32(2);
         break;
     }
 
