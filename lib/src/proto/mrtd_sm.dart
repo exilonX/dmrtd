@@ -43,6 +43,7 @@ class MrtdSM extends SecureMessaging {
     }
     print("=== MrtdSM INITIALIZED ===");
   }
+
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
     _log.debug("Protecting APDU");

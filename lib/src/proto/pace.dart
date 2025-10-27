@@ -858,7 +858,7 @@ class PACE {
             fieldSize: domainParameter.selectedDomainParameter.size);
         ephemeralPublicICCenvelope = apduStep2Pace.public as PublicKeyPACEeCDH;
         _log.debug("PACE step 3 response from ICC is valid");
-        _log.sdVerbose(
+        _log.debug(
             "Ephemeral public ICC key: ${ephemeralPublicICCenvelope.toString()}");
       } on Exception catch (e) {
         _log.error("PACE(3); Failed: $e");
@@ -870,7 +870,7 @@ class PACE {
         ECPublicKey ephemeralPublicICCkey =
             domainParameter.transformPublic(pubKey: ephemeralPublicICCenvelope);
         _log.debug("Epehemeral public key is successfully transformed");
-        _log.sdVerbose(
+        _log.debug(
             "Ephemeral public ICC key: ${ECDHPace.ecPointToList(point: ephemeralPublicICCkey.Q!, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
         ECPoint ephemeralSharedSecretKey =
             domainParameter.getEphemeralSharedSecret(
@@ -905,7 +905,7 @@ class PACE {
             PACE.cacluateMacKey(paceProtocol: paceProtocol, seed: seed);
 
         _log.debug("ENC and Mac keys are successfully calculated");
-        _log.sdVerbose("ENC key: ${encKey.hex()} "
+        _log.debug("ENC key: ${encKey.hex()} "
             "MAC key: ${macKey.hex()}");
 
         Uint8List calcInputData = PACE.generateEncodingInputData(
@@ -942,7 +942,7 @@ class PACE {
               inputData: calcInputDataTerminalforCheck,
               macKey: macKey);
 
-          _log.sdVerbose(
+          _log.debug(
               "Received auth token from ICC: ${computedAuthTokenICC.hex()}"
               ", Computed auth token: ${inputTokenTerminalforCheck.hex()}");
 
