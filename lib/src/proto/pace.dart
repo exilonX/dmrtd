@@ -912,13 +912,14 @@ class PACE {
         _log.debug(
             "ICC Ephemeral Public Key (received from card): ${ephemeralPublicICCenvelope.toBytes().hex()}");
         _log.debug(
-            "PCD Ephemeral Public Key (our own - USED IN T-BLOCK): ${domainParameter.getPubKeyEphemeral().toBytes().hex()}");
+            "PCD Ephemeral Public Key (our own): ${domainParameter.getPubKeyEphemeral().toBytes().hex()}");
 
-        // CRITICAL FIX: Use PCD's (our own) ephemeral public key, NOT the ICC's!
-        // According to PACE spec, PCD signs its own public key, and ICC signs its own.
+        // TRYING ALTERNATIVE: Maybe Romanian eID expects CMAC over ICC's key?
+        // This is against standard PACE spec, but let's try it
+        _log.debug("ATTEMPTING: Using ICC's ephemeral public key in T-Block");
         Uint8List calcInputData = PACE.generateEncodingInputData(
             cryptographicMechanism: paceProtocol,
-            publicKeyToSign: domainParameter.getPubKeyEphemeral());
+            publicKeyToSign: ephemeralPublicICCenvelope);
 
         _log.debug("Generated T-Block: ${calcInputData.hex()}");
         _log.debug("T-Block length: ${calcInputData.length} bytes");
@@ -945,12 +946,13 @@ class PACE {
           _log.debug(
               "Checking if computed auth token is the same as auth token from ICC");
 
-          // For verification, we need to calculate CMAC over ICC's ephemeral public key
-          // because the ICC calculated its auth token over its own ephemeral public key
+          // If we're using ICC's key for PCD's auth token, then ICC uses PCD's key for its auth token
+          _log.debug(
+              "ATTEMPTING: Using PCD's ephemeral public key to verify ICC's token");
           Uint8List calcInputDataTerminalforCheck =
               PACE.generateEncodingInputData(
                   cryptographicMechanism: paceProtocol,
-                  publicKeyToSign: ephemeralPublicICCenvelope);
+                  publicKeyToSign: domainParameter.getPubKeyEphemeral());
 
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
@@ -1111,11 +1113,11 @@ class PACE {
         _log.debug("ENC key: ${encKey.hex()} "
             "MAC key: ${macKey.hex()}");
 
-        // CRITICAL FIX: Use PCD's (our own) ephemeral public key, NOT the ICC's!
-        // According to PACE spec, PCD signs its own public key, and ICC signs its own.
+        // TRYING ALTERNATIVE: Maybe card expects CMAC over ICC's key?
+        _log.debug("ATTEMPTING: Using ICC's ephemeral public key in T-Block");
         Uint8List calcInputData = PACE.generateEncodingInputData(
             cryptographicMechanism: paceProtocol,
-            publicKeyToSign: domainParameter.getPubKeyEphemeral());
+            publicKeyToSign: ephemeralPublicICCenvelope);
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -1134,12 +1136,13 @@ class PACE {
           apduStep4Pace.parse();
           Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
 
-          // For verification, we need to calculate CMAC over ICC's ephemeral public key
-          // because the ICC calculated its auth token over its own ephemeral public key
+          // If we're using ICC's key for PCD's auth token, then ICC uses PCD's key for its auth token
+          _log.debug(
+              "ATTEMPTING: Using PCD's ephemeral public key to verify ICC's token");
           Uint8List calcInputDataTerminalforCheck =
               PACE.generateEncodingInputData(
                   cryptographicMechanism: paceProtocol,
-                  publicKeyToSign: ephemeralPublicICCenvelope);
+                  publicKeyToSign: domainParameter.getPubKeyEphemeral());
 
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
