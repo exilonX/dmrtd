@@ -1239,7 +1239,7 @@ class PACE {
 
       //step 1
       try {
-        await Future.delayed(Duration(milliseconds: 1000));
+        // Removed 1-second delay - causes NFC timeout on some phones
         Uint8List step1data = generateGeneralAuthenticateDataStep1();
         final step1Response =
             await icc.generalAuthenticatePACEstep1(data: step1data);
