@@ -3,10 +3,8 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dmrtd/extensions.dart';
-import 'package:dmrtd/src/crypto/cmac.dart';
 import 'package:dmrtd/src/lds/asn1ObjectIdentifiers.dart';
 import 'package:pointycastle/asn1/primitives/asn1_object_identifier.dart';
-import 'package:dmrtd/src/proto/iso7816/iso7816.dart';
 import 'package:dmrtd/src/proto/public_key_pace.dart';
 import 'package:dmrtd/src/crypto/kdf.dart';
 import 'package:dmrtd/src/crypto/aes.dart';
@@ -15,8 +13,6 @@ import 'package:dmrtd/src/proto/ssc.dart';
 import "package:dmrtd/src/proto/des_smcipher.dart";
 import 'package:dmrtd/src/proto/mrtd_sm.dart';
 import 'package:dmrtd/src/crypto/des.dart';
-import 'package:pointycastle/asn1/primitives/asn1_object_identifier.dart';
-import 'package:dmrtd/src/proto/pace_test_config.dart';
 
 import 'package:logging/logging.dart';
 import 'package:pointycastle/asn1.dart';
@@ -510,12 +506,7 @@ class PACE {
     KEY_LENGTH keyLength = paceProtocol.keyLength;
     CipherAlgorithm cipherAlgorithm = paceProtocol.cipherAlgoritm;
 
-    print("=== PACE.cacluateEncKey() ENTRY ===");
-    print("Seed (shared secret): ${seed.hex()}");
-    print("Key length: $keyLength");
-    print("Cipher algorithm: $cipherAlgorithm");
-
-    _log.debug("f");
+    _log.debug("Calculating ENC key ...");
     _log.sdDebug("Seed: ${seed.hex()}, "
         "Key length: $keyLength, "
         "Cipher algorithm: $cipherAlgorithm");
@@ -547,8 +538,6 @@ class PACE {
       throw PACEError("Cipher algorithm is not supported");
     }
 
-    print("Derived K_enc: ${derivedKey.hex()}");
-    print("=== PACE.cacluateEncKey() EXIT ===");
     return derivedKey;
   }
 
@@ -556,11 +545,6 @@ class PACE {
       {required OIEPaceProtocol paceProtocol, required Uint8List seed}) {
     KEY_LENGTH keyLength = paceProtocol.keyLength;
     CipherAlgorithm cipherAlgorithm = paceProtocol.cipherAlgoritm;
-
-    print("=== PACE.cacluateMacKey() ENTRY ===");
-    print("Seed (shared secret): ${seed.hex()}");
-    print("Key length: $keyLength");
-    print("Cipher algorithm: $cipherAlgorithm");
 
     _log.debug("Calculating MAC key ...");
     _log.sdDebug("Seed: ${seed.hex()}, "
@@ -587,15 +571,12 @@ class PACE {
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      print("Calling DeriveKey.desEDE()...");
       derivedKey = DeriveKey.desEDE(seed, paceMode: true);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
     }
 
-    print("Derived K_mac: ${derivedKey.hex()}");
-    print("=== PACE.cacluateMacKey() EXIT ===");
     return derivedKey;
   }
 
@@ -692,35 +673,26 @@ class PACE {
       {required OIEPaceProtocol paceProtocol,
       required Uint8List inputData,
       required Uint8List macKey}) {
-    _log.debug("Calculating Auth token using the application's AESCipher...");
+    _log.debug("Calculating Auth token ...");
     _log.sdDebug("InputData (T-Block): ${inputData.hex()}");
     _log.sdDebug("MAC key: ${macKey.hex()}");
 
     if (paceProtocol.cipherAlgoritm == CipherAlgorithm.AES) {
-      // ======================= THE FINAL CORRECT CODE =======================
-      // 1. USE YOUR EXISTING AESCIPHER. IT WORKS.
-      // This correctly uses your FixedCMac which avoids the IV crash.
       final aesCipher =
           AESChiperSelector.getChiper(size: paceProtocol.keyLength);
       final Uint8List fullComputedToken =
           aesCipher.calculateCMAC(data: inputData, key: macKey);
 
       _log.sdVerbose(
-          "Full computed auth token from FixedCMac (${fullComputedToken.length} bytes): ${fullComputedToken.hex()}");
+          "Full computed auth token (${fullComputedToken.length} bytes): ${fullComputedToken.hex()}");
 
-      // 2. TRUNCATE THE RESULT TO 8 BYTES.
-      // This is the ICAO standard and the only remaining bug.
       if (fullComputedToken.length < 8) {
         throw PACEError("Computed auth token is less than 8 bytes long!");
       }
 
-      // Use a view to avoid extra memory allocation.
       final truncatedToken = Uint8List.view(fullComputedToken.buffer, 0, 8);
-
-      _log.sdDebug(
-          "Truncated 8-byte Auth Token to be sent: ${truncatedToken.hex()}");
+      _log.sdDebug("Truncated 8-byte Auth Token: ${truncatedToken.hex()}");
       return truncatedToken;
-      // ======================================================================
     } else if (paceProtocol.cipherAlgoritm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
       var computedAuthToken = ISO9797.macAlg3(macKey, inputData);
@@ -785,63 +757,6 @@ class PACE {
         throw PACEError("PACE.decryptNonce; Cipher algorithm is not supported");
       }
 
-      // try {
-      //   _log.debug("Validating decrypted nonce is a point on the curve...");
-      //   final domainParameter = DomainParameterSelectorECDH.getDomainParameter(
-      //       id: paceDomainParameterId);
-      //   final curveParams = domainParameter.domainParameters;
-      //   final fieldSizeInBytes = (curveParams.curve.fieldSize / 8).ceil();
-
-      //   if (decryptedNonce.length != 2 * fieldSizeInBytes) {
-      //     throw PACEError(
-      //         "Decrypted nonce has incorrect length (${decryptedNonce.length} bytes) "
-      //         "for the selected curve (expected ${2 * fieldSizeInBytes} bytes). Incorrect CAN?");
-      //   }
-
-      //   // Use the correct Utils function
-      //   final x = Utils.uint8ListToBigInt(
-      //       decryptedNonce.sublist(0, fieldSizeInBytes));
-      //   final y =
-      //       Utils.uint8ListToBigInt(decryptedNonce.sublist(fieldSizeInBytes));
-
-      //   // Use the correct pointycastle validation method: try to create the point.
-      //   // The createPoint method will throw an exception if (x,y) is not on the curve.
-      //   curveParams.curve.createPoint(x, y);
-
-      //   _log.debug("Nonce validation successful.");
-      // } catch (e) {
-      //   _log.error(
-      //       "Decrypted nonce is NOT a valid point on the curve. The CAN is almost certainly incorrect. Validation failed with error: $e");
-      //   throw PACEError(
-      //       "PACE.decryptNonce; Nonce validation failed. Incorrect CAN.");
-      // }
-
-      // _log.severe("== NONCE ANALYSIS ==");
-      // _log.severe("Decrypted Nonce (raw): ${decryptedNonce.hex()}");
-      // _log.severe("Decrypted Nonce Length: ${decryptedNonce.length} bytes");
-
-      // try {
-      //   final domainParameter = DomainParameterSelectorECDH.getDomainParameter(
-      //       id: paceDomainParameterId);
-      //   final curveParams = domainParameter.domainParameters;
-      //   final fieldSizeInBytes = (curveParams.curve.fieldSize / 8).ceil();
-
-      //   if (decryptedNonce.length == 2 * fieldSizeInBytes) {
-      //     _log.info("Nonce has the correct length for a 64-byte public key.");
-      //     final x = Utils.uint8ListToBigInt(
-      //         decryptedNonce.sublist(0, fieldSizeInBytes));
-      //     final y =
-      //         Utils.uint8ListToBigInt(decryptedNonce.sublist(fieldSizeInBytes));
-      //     curveParams.curve.createPoint(x, y);
-      //   } else {
-      //     _log.warning(
-      //         "Nonce is NOT a 64-byte public key. It's something else.");
-      //   }
-      // } catch (e) {
-      //   _log.error("Error during nonce validation check: $e");
-      // }
-      // _log.severe("====================");
-
       return decryptedNonce;
     } on Exception catch (e) {
       _log.error("PACE.decryptNonce; Failed: $e");
@@ -869,47 +784,20 @@ class PACE {
         domainParameter = DomainParameterSelectorECDH.getDomainParameter(
             id: paceDomainParameterId);
 
-        // Check if we should use deterministic keys for testing
-        if (PaceTestConfig.useDeterministicKeys &&
-            PaceTestConfig.step2PrivateKey != null) {
-          _log.warning(
-              "⚠️  USING DETERMINISTIC KEYS FOR STEP 2 (TEST MODE ONLY)");
-          _log.warning(
-              "Step 2 private key: ${PaceTestConfig.step2PrivateKey!.hex()}");
+        domainParameter.generateKeyPair();
 
-          // Use setKeyPair to inject the deterministic private key
-          domainParameter.setKeyPair(private: PaceTestConfig.step2PrivateKey!);
-        } else {
-          // Normal random key generation
-          domainParameter.generateKeyPair();
-        }
-
-        //get public key
         PublicKeyPACEeCDH publicKeyPaceTerminal = domainParameter.getPubKey();
-        final pubKeyBytes = publicKeyPaceTerminal.toBytes();
-
-        print(
-            "Public key (X): ${publicKeyPaceTerminal.x.toRadixString(16).padLeft(64, '0')}");
-        print(
-            "Public key (Y): ${publicKeyPaceTerminal.y.toRadixString(16).padLeft(64, '0')}");
-        print("Public key SEC1 (hex): ${pubKeyBytes.hex()}");
 
         _log.sdVerbose("Private key: ${domainParameter.toStringWithCaution()}");
         _log.sdVerbose("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
 
-        print("Private key: ${domainParameter.toStringWithCaution()}");
-        print("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
-        print(publicKeyPaceTerminal.x.toString());
-        print(publicKeyPaceTerminal.y.toString());
-
-        final staticXy = domainParameter.getPubKey().toBytes(); // X||Y
+        final staticXy = domainParameter.getPubKey().toBytes();
         final step2data = generateGeneralAuthenticateDataStep2and3(
           publicKeyBytes: staticXy,
           isEcdh: true,
           isEphemeral: false,
         );
 
-        print("Step 2 data: ${step2data.hex()}");
         final step2Response =
             await icc.generalAuthenticatePACEstep2and3(data: step2data);
         //here the response is always 9000, otherwise exception is thrown
@@ -938,46 +826,14 @@ class PACE {
             nonce: nonce,
             mappingType: paceProtocol.mappingType);
 
-        _log.warning(
-            "[PACE Step3] Mapped generator X: ${generatorPoint.x.toString()}");
-        _log.warning(
-            "[PACE Step3] Mapped generator Y: ${generatorPoint.y.toString()}");
-        _log.warning(
-            "[PACE Step3] Mapped generator encoded: ${generatorPoint.getEncoded(false).hex()}");
-
         _log.sdVerbose(
             "Generator point: ${ECDHPace.ecPointToList(point: generatorPoint, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
 
-        // Check if we should use deterministic keys for testing
-        if (PaceTestConfig.useDeterministicKeys &&
-            PaceTestConfig.step3PrivateKey != null) {
-          _log.warning(
-              "⚠️  USING DETERMINISTIC KEYS FOR STEP 3 (TEST MODE ONLY)");
-          _log.warning(
-              "Step 3 private key: ${PaceTestConfig.step3PrivateKey!.hex()}");
+        domainParameter.generateKeyPairWithCustomGenerator(
+            mappedGenerator: generatorPoint);
 
-          // Use setEphemeralKeyPair to inject the deterministic private key
-          domainParameter.setEphemeralKeyPair(
-              private: PaceTestConfig.step3PrivateKey!,
-              mappedGenerator: generatorPoint);
-        } else {
-          // Normal random key generation
-          domainParameter.generateKeyPairWithCustomGenerator(
-              mappedGenerator: generatorPoint);
-        }
-
-        //get public key
         PublicKeyPACEeCDH publicKeyEphemeralPaceTerminal =
             domainParameter.getPubKeyEphemeral();
-
-        final pubKeyBytes = publicKeyEphemeralPaceTerminal.toBytes();
-        _log.warning("[PACE Step3] Ephemeral public key: ${pubKeyBytes.hex()}");
-        _log.warning(
-            "[PACE Step3] Ephemeral public key length: ${pubKeyBytes.length}");
-        if (pubKeyBytes.length != 65 || pubKeyBytes[0] != 0x04) {
-          _log.warning(
-              "[PACE Step3] PUBLIC KEY FORMAT MISMATCH! Should be uncompressed SEC1 format (0x04 + 32 + 32 bytes)");
-        }
 
         _log.sdVerbose(
             "Private key (ephemeral included): ${domainParameter.toStringWithCaution()}");
@@ -990,28 +846,6 @@ class PACE {
           isEcdh: true,
           isEphemeral: true,
         );
-        // await icc.generalAuthenticatePACEstep2and3(data: step3);
-
-        _log.info(
-            "PACE step 3 ephemeral public key (raw): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
-        _log.info(
-            "Mapped generator (EC point): ${ECDHPace.ecPointToList(point: generatorPoint, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
-        _log.info("GENERAL AUTHENTICATE APDU data (hex): ${step3data.hex()}");
-
-        final tlv = TLV.fromBytes(step3data);
-        _log.warning(
-            "[PACE Step3] Outer TLV tag: ${tlv.tag.hex()}, len: ${tlv.value.length}");
-        if (tlv.value.length > 0) {
-          try {
-            final inner = TLV.fromBytes(tlv.value);
-            _log.warning(
-                "[PACE Step3] Inner TLV tag: ${inner.tag.hex()}, len: ${inner.value.length}");
-            _log.warning("[PACE Step3] Inner value: ${inner.value.hex()}");
-          } catch (e) {
-            _log.warning("[PACE Step3] Failed to parse inner TLV: $e");
-          }
-        }
-        _log.warning("[PACE Step3] Full APDU: ${step3data.hex()}");
 
         final step3Response =
             await icc.generalAuthenticatePACEstep2and3(data: step3data);
@@ -1065,16 +899,10 @@ class PACE {
             fieldSizeInBytes - xBytes.length, fieldSizeInBytes, xBytes);
         _log.sdVerbose("Seed (x-coordinate of shared secret): ${seed.hex()}");
 
-        print("=== KEY DERIVATION FROM SHARED SECRET ===");
-        print("Shared secret (seed/K): ${seed.hex()}");
-
         Uint8List encKey =
             PACE.cacluateEncKey(paceProtocol: paceProtocol, seed: seed);
         Uint8List macKey =
             PACE.cacluateMacKey(paceProtocol: paceProtocol, seed: seed);
-
-        print("Derived K_enc: ${encKey.hex()}");
-        print("Derived K_mac: ${macKey.hex()}");
 
         _log.debug("ENC and Mac keys are successfully calculated");
         _log.sdVerbose("ENC key: ${encKey.hex()} "
@@ -1084,111 +912,22 @@ class PACE {
             cryptographicMechanism: paceProtocol,
             publicKeyToSign: ephemeralPublicICCenvelope);
 
-        // Uint8List calcInputData = PACE.generateSimpleAuthData(
-        //     ephemeralPublic: domainParameter.getPubKeyEphemeral(),
-        //     iccEphemeralPublic: ephemeralPublicICCenvelope);
-
-        print("=== DETAILED T-BLOCK ANALYSIS ===");
-        print("Protocol object: ${paceProtocol.toString()}");
-        print("Protocol runtimeType: ${paceProtocol.runtimeType}");
-
-// Try these possible properties:
-        try {
-          print("Protocol identifier: ${paceProtocol.identifier}");
-        } catch (e) {
-          print("No identifier property");
-        }
-        print("=== PACE PROTOCOL INSPECTION ===");
-        print("PaceProtocol type: ${paceProtocol.runtimeType}");
-        print("PaceProtocol string: ${paceProtocol.toString()}");
-        print("Cipher algorithm: ${paceProtocol.cipherAlgoritm}");
-        print("Key length: ${paceProtocol.keyLength}");
-        print("Token agreement algo: ${paceProtocol.tokenAgreementAlgorithm}");
-        print("Mapping type: ${paceProtocol.mappingType}");
-
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
             inputData: calcInputData,
             macKey: macKey);
-        print("=== STEP 4 DEBUG ===");
-        print("ENC key:   ${encKey.hex()}");
-        print("MAC key:   ${macKey.hex()}");
-        print("InputData (T-block): ${calcInputData.hex()}");
-        print("AuthToken: ${inputToken.hex()}");
-
-        // final ca1 = efCardAccess.paceInfo?.certificationAuthorityReference;
-        // final ca2 = efCardAccess.paceInfo?.certificationAuthorityReference2;
 
         Uint8List step4data =
             generateGeneralAuthenticateDataStep4(authToken: inputToken);
 
-        final pcCmac = FixedCMac.fromCipher(BlockCipher('AES'))
-          ..init(KeyParameter(macKey));
-        final pcMac = pcCmac.process(calcInputData);
-
-        print('=== CMAC COMPARISON ===');
-        print('FixedCMac:        ${inputToken.hex()}');
-        print('PointyCastleCMac: ${pcMac.hex()}');
-
-        if (!inputToken.equals(pcMac)) {
-          print('>> MISMATCH between FixedCMac and PointyCastle CMac!');
-        }
-
-        print("=== T-BLOCK CONTENT CHECK ===");
-        print(
-            "Our ephemeral public key: ${domainParameter.getPubKeyEphemeral().toBytes().hex()}");
-        print(
-            "ICC's ephemeral public key: ${ephemeralPublicICCenvelope.toBytes().hex()}");
-        print("Complete T-block: ${calcInputData.hex()}");
-
-        // Check if both keys are in the T-block
-        String ourKeyHex = domainParameter.getPubKeyEphemeral().toBytes().hex();
-        String iccKeyHex = ephemeralPublicICCenvelope.toBytes().hex();
-        String tBlockHex = calcInputData.hex();
-
-        print("Our key in T-block? ${tBlockHex.contains(ourKeyHex)}");
-        print("ICC key in T-block? ${tBlockHex.contains(iccKeyHex)}");
-
-        final apduBytes = <int>[
-          0x00, // CLA
-          ISO7816_INS.GENERAL_AUTHENTICATE,
-          0x00, 0x00,
-          step4data.length, // Lc
-          ...step4data,
-          // no Le here, or use 0x00 if your transceive requires it
-        ];
-        print('=== APDU TO SEND ===');
-        print(apduBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join());
-        print("Step 4 APDU DATA: ${step4data.hex()}");
-// parse the TLV so you can see tags/lengths
-        var outer = TLV.fromBytes(step4data);
-        var inner = TLV.fromBytes(outer.value);
-        print("Outer TLV: tag=${outer.tag.hex()}, len=${outer.value.length}");
-        print("Inner TLV: tag=${inner.tag.hex()}, len=${inner.value.length}");
-        print("====================");
-
         final step4Response =
             await icc.generalAuthenticatePACEstep4(data: step4data);
 
-        // Add logging RIGHT HERE, before the if statement:
-        _log.severe("=== PACE STEP 4 RESPONSE ANALYSIS ===");
-        _log.severe("step4Response is null: ${step4Response == null}");
-        _log.severe(
-            "step4Response is empty: ${step4Response?.isEmpty ?? true}");
-
-        //here the response is always 9000, otherwise exception is thrown
         if (step4Response != null && step4Response.isNotEmpty) {
           ResponseAPDUStep4Pace apduStep4Pace =
               ResponseAPDUStep4Pace(step4Response);
           apduStep4Pace.parse();
           Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
-
-          _log.severe("=== AUTH TOKEN COMPARISON ===");
-          _log.severe("ICC returned token: ${computedAuthTokenICC.hex()}");
-          _log.severe("We sent token: ${inputToken.hex()}");
-          Uint8List terminalEphemeralKey =
-              domainParameter.getPubKeyEphemeral().toBytes();
-          _log.severe("Our ephemeral key: ${terminalEphemeralKey.hex()}");
 
           _log.debug(
               "Checking if computed auth token is the same as auth token from ICC");
@@ -1198,18 +937,10 @@ class PACE {
                   cryptographicMechanism: paceProtocol,
                   publicKeyToSign: domainParameter.getPubKeyEphemeral());
 
-          _log.severe(
-              "T-block ICC should use: ${calcInputDataTerminalforCheck.hex()}");
-
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
               inputData: calcInputDataTerminalforCheck,
               macKey: macKey);
-
-          _log.severe(
-              "Expected ICC token: ${inputTokenTerminalforCheck.hex()}");
-          _log.severe(
-              "Do they match? ${inputTokenTerminalforCheck.hex() == computedAuthTokenICC.hex()}");
 
           _log.sdVerbose(
               "Received auth token from ICC: ${computedAuthTokenICC.hex()}"
@@ -1218,8 +949,6 @@ class PACE {
           if (!inputTokenTerminalforCheck.equals(computedAuthTokenICC)) {
             _log.error(
                 "PACE(4); Auth token from ICC and terminal are not the same");
-            // throw PACEError(
-            //     "PACE(4); Auth token from ICC and terminal are not the same");
           } else {
             _log.info("PACE step 4 mutual authentication successful!");
           }
@@ -1230,64 +959,15 @@ class PACE {
 
         _log.debug("Finished PACE SM key establishment");
         _log.debug("Setting up SM session ...");
-        CipherAlgorithm cipherAlgo = paceProtocol.cipherAlgoritm;
-        // grab the raw SEC1 bytes of each ephemeral key
-        final ifdEphem = domainParameter.getPubKeyEphemeral().toBytes();
-        final iccEphem = ephemeralPublicICCenvelope.toBytes();
 
-        print("=== SSC INITIALIZATION DEBUG ===");
-        print("IFD ephemeral raw: ${ifdEphem.hex()}");
-        print("ICC ephemeral raw: ${iccEphem.hex()}");
-        print("IFD ephemeral length: ${ifdEphem.length}");
-        print("ICC ephemeral length: ${iccEphem.length}");
-
-        // Log just the X coordinates (what SSC might use)
-        if (ifdEphem.length >= 33) {
-          print("IFD X coordinate: ${ifdEphem.sublist(1, 33).hex()}");
-        }
-        if (iccEphem.length >= 33) {
-          print("ICC X coordinate: ${iccEphem.sublist(1, 33).hex()}");
-        }
-
-        // build the correct SSC as per ICAO‑9303 §9.8.7.3
-        // final ssc = SSC.anotherPACE(
-        //   iccEphemeral: iccEphem,
-        //   ifdEphemeral: ifdEphem,
-        // );
-        // final ssc = SSC.forRomanianEID();
-        // ssc.increment(); // increment before first use
-
-        // and finally plug it into your SM layer
-        // final smCipher = (cipherAlgo == CipherAlgorithm.AES)
-        //     ? AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength)
-        //     : DES_SMCipher(encKey, macKey);
         final ssc = AES_SSC();
-
-        print("=== SM KEY SETUP DEBUG ===");
-        print("K_enc (${encKey.length} bytes): ${encKey.hex()}");
-        print("K_mac (${macKey.length} bytes): ${macKey.hex()}");
-        print("Key length enum: ${paceProtocol.keyLength}");
-        print("SSC initial value: ${ssc.toBytes().hex()}");
 
         icc.sm = MrtdSM(
           AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength),
-          ssc, // SSC derived from ephemeral keys per BSI TR-03110
+          ssc,
         );
 
-        print("Initial SSC : ${ssc.toBytes().hex()}");
-
         _log.debug("... SM (with ECDH) session is set up.");
-
-        // ADD THIS VERIFICATION
-        _log.severe("=== SM SESSION VERIFICATION ===");
-        _log.severe("SM is set: ${icc.sm != null}");
-        if (icc.sm != null) {
-          final sm = icc.sm as MrtdSM;
-          _log.severe("SSC value: ${sm.ssc.toBytes().hex()}");
-          _log.severe("Cipher type: ${sm.cipher.runtimeType}");
-          _log.severe("Block length: ${sm.blockLen()}");
-        }
-        _log.severe("================================");
       } on Exception catch (e) {
         _log.error("PACE <ECDH> (4); Failed: $e");
         throw PACEError("PACE <ECDH> (4); Failed: $e");
