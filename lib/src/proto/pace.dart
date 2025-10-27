@@ -908,14 +908,25 @@ class PACE {
         _log.debug("ENC key: ${encKey.hex()} "
             "MAC key: ${macKey.hex()}");
 
+        _log.debug("=== STEP 4 T-BLOCK DEBUG ===");
+        _log.debug(
+            "ICC Ephemeral Public Key (for T-Block): ${ephemeralPublicICCenvelope.toBytes().hex()}");
+        _log.debug(
+            "PCD Ephemeral Public Key (for reference): ${domainParameter.getPubKeyEphemeral().toBytes().hex()}");
+
         Uint8List calcInputData = PACE.generateEncodingInputData(
             cryptographicMechanism: paceProtocol,
             publicKeyToSign: ephemeralPublicICCenvelope);
+
+        _log.debug("Generated T-Block: ${calcInputData.hex()}");
+        _log.debug("T-Block length: ${calcInputData.length} bytes");
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
             inputData: calcInputData,
             macKey: macKey);
+
+        _log.debug("Calculated Auth Token: ${inputToken.hex()}");
 
         Uint8List step4data =
             generateGeneralAuthenticateDataStep4(authToken: inputToken);
