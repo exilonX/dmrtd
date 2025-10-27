@@ -129,7 +129,7 @@ class ResponseAPDUStep1Pace {
       _log.error("Pace.step1; Response data is null");
       throw ResponseAPDUStep1PaceError("Pace.step1; Response data is null");
     }
-    _log.sdVerbose("ResponseAPDUStep1Pace data: ${data.hex()}");
+    _log.debug("ResponseAPDUStep1Pace data: ${data.hex()}");
 
     TLV dynamicAuthenticationData = TLV.fromBytes(data!);
 
@@ -153,7 +153,7 @@ class ResponseAPDUStep1Pace {
           "Pace.step1; Dynamic authentication data does not contain encrypted nonce");
     }
     this._nonce = encryptedNonce.value;
-    _log.sdVerbose("Nonce: ${_nonce.hex()}");
+    _log.debug("Nonce: ${_nonce.hex()}");
   }
 }
 
@@ -176,7 +176,7 @@ class ResponseAPDUStep2or3Pace {
       _log.error("Pace.step2; Response data is null");
       throw ResponseAPDUStep2or3PaceError("Pace.step2; Response data is null");
     }
-    _log.sdVerbose("ResponseAPDUStep2and3Pace data: ${data.hex()}");
+    _log.debug("ResponseAPDUStep2and3Pace data: ${data.hex()}");
 
     TLV dynamicAuthenticationData = TLV.fromBytes(data!);
 
@@ -237,7 +237,7 @@ class ResponseAPDUStep2or3Pace {
       _log.verbose("Pace.step2 or 3; Mapping data contains DH public key");
       _public = PublicKeyPACEdH(pub: mappingData.value);
     }
-    _log.sdVerbose("ICC public key: ${_public.toString()}");
+    _log.debug("ICC public key: ${_public.toString()}");
   }
 }
 
@@ -259,7 +259,7 @@ class ResponseAPDUStep4Pace {
       throw ResponseAPDUStep2or3PaceError("Pace.step4; Response data is null");
     }
 
-    _log.sdVerbose("ResponseAPDUStep4Pace data: ${data.hex()}");
+    _log.debug("ResponseAPDUStep4Pace data: ${data.hex()}");
 
     TLV dynamicAuthenticationData = TLV.fromBytes(data!);
 
@@ -292,7 +292,7 @@ class ResponseAPDUStep4Pace {
     }
     _authToken = mappingData.value;
     _log.debug("Parsing step 4 response data was successful");
-    _log.sdVerbose("Authentication token: ${_authToken.hex()}");
+    _log.debug("Authentication token: ${_authToken.hex()}");
   }
 }
 
@@ -383,7 +383,7 @@ class PACE {
     builder.add(ourKey);
 
     final result = builder.toBytes();
-    _log.sdVerbose("Simple Auth Data: ${result.hex()}");
+    _log.debug("Simple Auth Data: ${result.hex()}");
     return result;
   }
 
@@ -436,17 +436,17 @@ class PACE {
   //     Uint8List uncompressedPoint = Uint8List.fromList([UNCOMPRESSED_POINT]);
   //     mappingData = TLV(PUBLIC_KEY_TAG,
   //         Uint8List.fromList(uncompressedPoint + public.toBytes()));
-  //     _log.sdVerbose("ECDH data: ${mappingData.toBytes().hex()}");
+  //     _log.debug("ECDH data: ${mappingData.toBytes().hex()}");
   //   } else {
   //     // DH
   //     mappingData = TLV(PUBLIC_KEY_TAG, public.toBytes());
-  //     _log.sdVerbose("DH data: ${mappingData.toBytes().hex()}");
+  //     _log.debug("DH data: ${mappingData.toBytes().hex()}");
   //   }
 
   //   TLV dynamicAuthenticationData =
   //       TLV(DYNAMIC_AUTHENTICATION_DATA_TAG, mappingData.toBytes());
 
-  //   _log.sdVerbose(
+  //   _log.debug(
   //       "PACE step 2 (or 3) data: ${dynamicAuthenticationData.toBytes().hex()}");
   //   return dynamicAuthenticationData.toBytes();
   // }
@@ -496,7 +496,7 @@ class PACE {
 
     final dynamicAuthenticationData =
         TLV(DYNAMIC_AUTHENTICATION_DATA_TAG, set.toBytes());
-    _log.sdVerbose(
+    _log.debug(
         "PACE step 4 data: ${dynamicAuthenticationData.toBytes().hex()}");
     return dynamicAuthenticationData.toBytes();
   }
@@ -635,13 +635,13 @@ class PACE {
   //           size: KEY_LENGTH.s128); //size is not important
   //       computedAuthToken =
   //           aesCipher.calculateCMAC(data: inputData, key: macKey);
-  //       _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
+  //       _log.debug("Computed auth token: ${computedAuthToken.hex()}");
   //     } else if (keyLength == KEY_LENGTH.s256) {
   //       AESCipher aesCipher = AESChiperSelector.getChiper(
   //           size: KEY_LENGTH.s256); //size is not important
   //       computedAuthToken =
   //           aesCipher.calculateCMAC(data: inputData, key: macKey);
-  //       _log.sdVerbose("Computed auth token 256: ${computedAuthToken.hex()}");
+  //       _log.debug("Computed auth token 256: ${computedAuthToken.hex()}");
   //     } else {
   //       _log.error("Key length is not supported");
   //       throw PACEError("Key length is not supported");
@@ -650,7 +650,7 @@ class PACE {
   //     _log.debug("Cipher algorithm: DESede.");
   //     computedAuthToken =
   //         ISO9797.macAlg3(macKey, inputData); //padding included:)
-  //     _log.sdVerbose("Computed auth token: ${computedAuthToken.hex()}");
+  //     _log.debug("Computed auth token: ${computedAuthToken.hex()}");
   //   } else {
   //     _log.error("Cipher algorithm is not supported");
   //     throw PACEError("Cipher algorithm is not supported");
@@ -683,7 +683,7 @@ class PACE {
       final Uint8List fullComputedToken =
           aesCipher.calculateCMAC(data: inputData, key: macKey);
 
-      _log.sdVerbose(
+      _log.debug(
           "Full computed auth token (${fullComputedToken.length} bytes): ${fullComputedToken.hex()}");
 
       if (fullComputedToken.length < 8) {
@@ -713,16 +713,16 @@ class PACE {
       required int paceDomainParameterId}) {
     try {
       _log.debug("PACE.decryptNonce; Decrypting nonce ...");
-      _log.sdVerbose("PACE.decryptNonce; Nonce: ${nonce.hex()}, "
+      _log.debug("PACE.decryptNonce; Nonce: ${nonce.hex()}, "
           "Pace protocol: ${paceProtocol.toString()}");
-      _log.sdVerbose("PACE.decryptNonce; Access key: ${accessKey.toString()}");
+      _log.debug("PACE.decryptNonce; Access key: ${accessKey.toString()}");
 
       CipherAlgorithm cipherAlgo = paceProtocol.cipherAlgoritm;
       KEY_LENGTH keyLength = paceProtocol.keyLength;
 
       Uint8List k_pi = accessKey.Kpi(cipherAlgo, keyLength);
       //Uint8List k_pi = cacluate_K_PI_Key(paceProtocol: paceProtocol, seed: key);
-      _log.sdVerbose("PACE.decryptNonce; K-pi: ${k_pi.hex()}");
+      _log.debug("PACE.decryptNonce; K-pi: ${k_pi.hex()}");
 
       Uint8List decryptedNonce;
 
@@ -732,14 +732,14 @@ class PACE {
           AESCipher aesCipher128 =
               AESChiperSelector.getChiper(size: KEY_LENGTH.s128);
           decryptedNonce = aesCipher128.decrypt(data: nonce, key: k_pi);
-          _log.sdVerbose(
+          _log.debug(
               "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
         } else if (keyLength == KEY_LENGTH.s256) {
           _log.debug("PACE.decryptNonce; Cipher algorithm: AES 256");
           AESCipher aesCipher256 =
               AESChiperSelector.getChiper(size: KEY_LENGTH.s256);
           decryptedNonce = aesCipher256.decrypt(data: nonce, key: k_pi);
-          _log.sdVerbose(
+          _log.debug(
               "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
         } else {
           _log.error("PACE.decryptNonce; Key length is not supported");
@@ -750,7 +750,7 @@ class PACE {
         /*key iv data*/
         decryptedNonce =
             DESedeDecrypt(edata: nonce, key: k_pi, iv: Uint8List(8));
-        _log.sdVerbose(
+        _log.debug(
             "PACE.decryptNonce; Decrypted nonce: ${decryptedNonce.hex()}");
       } else {
         _log.error("PACE.decryptNonce; Cipher algorithm is not supported");
@@ -771,7 +771,7 @@ class PACE {
       required OIEPaceProtocol paceProtocol}) async {
     try {
       _log.debug("PACE >ECDH< key establishment (from step 2 to step 4) ...");
-      _log.sdVerbose("PACE >ECDH< key establishment (from step 2 to step 4); "
+      _log.debug("PACE >ECDH< key establishment (from step 2 to step 4); "
           "Decrypted nonce: ${nonce.hex()}, "
           "Pace domain parameter id(int): $paceDomainParameterId, "
           "Pace protocol: ${paceProtocol.toString()}");
@@ -788,8 +788,8 @@ class PACE {
 
         PublicKeyPACEeCDH publicKeyPaceTerminal = domainParameter.getPubKey();
 
-        _log.sdVerbose("Private key: ${domainParameter.toStringWithCaution()}");
-        _log.sdVerbose("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
+        _log.debug("Private key: ${domainParameter.toStringWithCaution()}");
+        _log.debug("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
 
         final staticXy = domainParameter.getPubKey().toBytes();
         final step2data = generateGeneralAuthenticateDataStep2and3(
@@ -826,7 +826,7 @@ class PACE {
             nonce: nonce,
             mappingType: paceProtocol.mappingType);
 
-        _log.sdVerbose(
+        _log.debug(
             "Generator point: ${ECDHPace.ecPointToList(point: generatorPoint, fieldSize: domainParameter.selectedDomainParameter.size).toString()}");
 
         domainParameter.generateKeyPairWithCustomGenerator(
@@ -835,9 +835,9 @@ class PACE {
         PublicKeyPACEeCDH publicKeyEphemeralPaceTerminal =
             domainParameter.getPubKeyEphemeral();
 
-        _log.sdVerbose(
+        _log.debug(
             "Private key (ephemeral included): ${domainParameter.toStringWithCaution()}");
-        _log.sdVerbose(
+        _log.debug(
             "Public key (ephemeral): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
 
         final ephXy = domainParameter.getPubKeyEphemeral().toBytes();
@@ -878,14 +878,14 @@ class PACE {
 
         // ECPoint ephemeralSharedSecretKey = domainParameter.getVanillaSharedSecret(otherEphemeralPubKey: ephemeralPublicICCkey)
 
-        _log.sdVerbose("Ephemeral shared secret (X, Y): "
+        _log.debug("Ephemeral shared secret (X, Y): "
             "${ECDHPace.ecPointToList(point: ephemeralSharedSecretKey, fieldSize: domainParameter.selectedDomainParameter.size).toBytes().hex()}");
 
         // Uint8List seed = ECDHPace.ecPointToList(
         //         point: ephemeralSharedSecretKey,
         //         fieldSize: domainParameter.selectedDomainParameter.size)
         //     .toRelavantBytes();
-        // _log.sdVerbose("Seed: ${seed.hex()}");
+        // _log.debug("Seed: ${seed.hex()}");
 
         final BigInt xCoord = ephemeralSharedSecretKey.x!.toBigInteger()!;
         final int fieldSizeInBytes =
@@ -897,7 +897,7 @@ class PACE {
 // Manually left-pad the x-coordinate with zeros to match the field size.
         seed.setRange(
             fieldSizeInBytes - xBytes.length, fieldSizeInBytes, xBytes);
-        _log.sdVerbose("Seed (x-coordinate of shared secret): ${seed.hex()}");
+        _log.debug("Seed (x-coordinate of shared secret): ${seed.hex()}");
 
         Uint8List encKey =
             PACE.cacluateEncKey(paceProtocol: paceProtocol, seed: seed);
@@ -985,7 +985,7 @@ class PACE {
       required OIEPaceProtocol paceProtocol}) async {
     try {
       _log.debug("PACE >DH< key establishment (from step 2 to step 4) ...");
-      _log.sdVerbose("PACE >DH< key establishment (from step 2 to step 4); "
+      _log.debug("PACE >DH< key establishment (from step 2 to step 4); "
           "Decrypted nonce: ${nonce.hex()}, "
           "Pace domain parameter id(int): $paceDomainParameterId, "
           "Pace protocol: ${paceProtocol.toString()}");
@@ -1002,8 +1002,8 @@ class PACE {
         //get public key
         PublicKeyPACEdH publicKeyPaceTerminal = domainParameter.getPubKey();
 
-        _log.sdVerbose("Private key: ${domainParameter.toStringWithCaution()}");
-        _log.sdVerbose("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
+        _log.debug("Private key: ${domainParameter.toStringWithCaution()}");
+        _log.debug("Public key: ${publicKeyPaceTerminal.toBytes().hex()}");
 
         Uint8List step2data = generateGeneralAuthenticateDataStep2and3(
           publicKeyBytes: publicKeyPaceTerminal.toBytes(),
@@ -1034,7 +1034,7 @@ class PACE {
         Uint8List generatorPoint = domainParameter.getMappedGenerator(
             otherPubKey: publicICCenvelope.toRelavantBytes(), nonce: nonce);
 
-        _log.sdVerbose("Generator point: ${generatorPoint.hex()}");
+        _log.debug("Generator point: ${generatorPoint.hex()}");
         domainParameter.generateKeyPairWithCustomGenerator(
             ephemeralGenerator: Utils.uint8ListToBigInt(generatorPoint));
 
@@ -1042,7 +1042,7 @@ class PACE {
         PublicKeyPACEdH publicKeyEphemeralPaceTerminal =
             domainParameter.getPubKeyEphemeral();
 
-        _log.sdVerbose(
+        _log.debug(
             "Private key (ephemeral included): ${domainParameter.toStringWithCaution()}");
         _log.sdDebug(
             "Public key (ephemeral): ${publicKeyEphemeralPaceTerminal.toBytes().hex()}");
@@ -1063,7 +1063,7 @@ class PACE {
             fieldSize: domainParameter.selectedDomainParameter.size);
         ephemeralPublicICCenvelope = apduStep2Pace.public as PublicKeyPACEdH;
         _log.debug("PACE step 3 response from ICC is valid");
-        _log.sdVerbose(
+        _log.debug(
             "Ephemeral public ICC key: ${ephemeralPublicICCenvelope.toString()}");
       } on Exception catch (e) {
         _log.error("PACE(3); Failed: $e");
@@ -1079,13 +1079,13 @@ class PACE {
                 otherEphemeralPubKey:
                     ephemeralPublicICCenvelope.toRelavantBytes());
 
-        _log.sdVerbose("Ephemeral shared secret (X, Y): "
+        _log.debug("Ephemeral shared secret (X, Y): "
             "${Utils.bigIntToUint8List(bigInt: ephemeralSharedSecretKey).hex()}");
 
         //not sure if correct
         Uint8List seed =
             Utils.bigIntToUint8List(bigInt: ephemeralSharedSecretKey);
-        _log.sdVerbose("Seed: ${seed.hex()}");
+        _log.debug("Seed: ${seed.hex()}");
 
         Uint8List encKey =
             PACE.cacluateEncKey(paceProtocol: paceProtocol, seed: seed);
@@ -1093,7 +1093,7 @@ class PACE {
             PACE.cacluateMacKey(paceProtocol: paceProtocol, seed: seed);
 
         _log.debug("ENC and Mac keys are successfully calculated");
-        _log.sdVerbose("ENC key: ${encKey.hex()} "
+        _log.debug("ENC key: ${encKey.hex()} "
             "MAC key: ${macKey.hex()}");
 
         Uint8List calcInputData = PACE.generateEncodingInputData(
@@ -1127,7 +1127,7 @@ class PACE {
               inputData: calcInputDataTerminalforCheck,
               macKey: macKey);
 
-          _log.sdVerbose(
+          _log.debug(
               "Received auth token from ICC: ${computedAuthTokenICC.hex()}"
               ", Computed auth token: ${inputTokenTerminalforCheck.hex()}");
 
@@ -1193,7 +1193,7 @@ class PACE {
         throw PACEError("PACE domain parameter is not supported");
       }
 
-      _log.sdVerbose("Access key: ${accessKey.toString()}");
+      _log.debug("Access key: ${accessKey.toString()}");
 
       OIEPaceProtocol paceProtocol = efCardAccess.paceInfo!.protocol;
       _log.debug("Protocol: $paceProtocol");

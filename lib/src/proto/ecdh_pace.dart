@@ -217,7 +217,7 @@ class ECDHPace {
       throw ECDHPaceError("Seed must be 256 bits long.");
     }
 
-    _log.sdVerbose(
+    _log.debug(
         "Mapped generator: ${ecPointToList(point: mappedGenerator, fieldSize: selectedDomainParameter.size).toString()}");
 
     var secureRandom = SecureRandom("Fortuna")..seed(KeyParameter(seed32byte));
@@ -247,7 +247,7 @@ class ECDHPace {
 
     _log.sdDebug(
         "Ephemeral public key: ${ecPointToList(point: _pubEphemeral!.Q!, fieldSize: selectedDomainParameter.size).toString()}");
-    _log.sdVerbose(
+    _log.debug(
         "Ephemeral private key(x): ${Utils.bigIntToUint8List(bigInt: _privEphemeral!.d!).hex()}");
   }
 
@@ -408,7 +408,7 @@ class ECDHPace {
   //   }
 
   //   ECPoint sharedSecret = getSharedSecret(otherPubKey: otherPubKey);
-  //   _log.sdVerbose("Shared secret in mapped generator (X, Y): "
+  //   _log.debug("Shared secret in mapped generator (X, Y): "
   //       "${ECDHPace.ecPointToList(point: sharedSecret).toBytes()}");
 
   //   ECPoint? pointG = _priv!.parameters?.G;
@@ -502,9 +502,9 @@ class ECDHPace {
     _log.severe("================================");
     // ==> END LOGGING BLOCK <==
 
-    _log.sdVerbose(
+    _log.debug(
         "Mapped generator G′ (X): ${mapped.x!.toBigInteger()?.toRadixString(16)}");
-    _log.sdVerbose(
+    _log.debug(
         "Mapped generator G′ (Y): ${mapped.y!.toBigInteger()?.toRadixString(16)}");
     return mapped;
   }
