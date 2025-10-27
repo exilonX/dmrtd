@@ -38,4 +38,3 @@ export 'src/proto/dba_key.dart';
 export 'src/proto/access_key.dart';
 export 'src/proto/pin_key.dart';
 export 'src/proto/can_key.dart';
-export 'src/proto/pace_test_config.dart';
