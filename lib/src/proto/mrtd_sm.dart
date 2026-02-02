@@ -51,56 +51,66 @@ class MrtdSM extends SecureMessaging {
 
     final pcmd = maskCmd(cmd);
     final header = pcmd.rawHeader();
-    final int originalNe = cmd.ne;
 
     // Skip DO87 if no data (required for PACE/AES)
     final dataDO = generateDataDO(pcmd);
+    // DO97 is always included (per working version)
+    final do97 = SecureMessaging.do97(pcmd.ne);
 
-    // Only include DO'97' in MAC if the original command expects a response (ne != 0)
-    final bool includeDo97 = (originalNe != 0);
-
-    // For PACE/AES: DO'97' encoding (when included)
-    // - ne=256 or ne=65536 → 97 01 00 or 97 02 00 00
-    // - other values → 97 <len> <value>
-    final do97 = includeDo97
-        ? (originalNe == 256
-            ? Uint8List.fromList([0x97, 0x01, 0x00])
-            : SecureMessaging.do97(originalNe, cipherType: cipher.type))
-        : Uint8List(0);
+    Uint8List fullCC;
 
     if (cipher.type == CipherAlgorithm.DESede) {
       // === BAC branch ===
       final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
       final N = generateN(M: M); // ISO9797 padded
-      final fullCC = cipher.mac(N);
+      fullCC = cipher.mac(N);
       final do8E = SecureMessaging.do8E(fullCC);
       pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-      pcmd.ne = originalNe;
+      pcmd.ne = 256;
       return pcmd;
     }
 
     // === PACE/AES branch ===
-    // Working approach: concatenate SSC + header + DOs, then pad once
+    // BSI TR-03110-3 Annex B: M = SSC || CmdHeader* || DO87 || DO97
+    // CmdHeader* is the padded command header (ISO 9797-1 method 2)
+    final paddedHeader = ISO9797.pad(header, blockLen());
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
-      ...header,
+      ...paddedHeader,
       ...dataDO,
       ...do97,
     ]);
     final paddedMacInput = ISO9797.pad(macInput, blockLen());
 
+    print("=== SM PROTECT (AES) ===");
+    print("SSC: ${_ssc.toBytes().hex()}");
+    print("Header (raw 4 bytes): ${header.hex()}");
+    print("Header (padded to 16): ${paddedHeader.hex()}");
+    print("DO87: ${dataDO.hex()}");
+    print("DO97: ${do97.hex()}");
+    print("MAC input (before final pad): ${macInput.hex()}");
+    print("MAC input (after final pad): ${paddedMacInput.hex()}");
     _log.verbose("MAC input (before padding)=${macInput.hex()}");
     _log.verbose("MAC input (after padding)=${paddedMacInput.hex()}");
 
-    final fullCC = cipher.mac(paddedMacInput);
+    fullCC = cipher.mac(paddedMacInput);
 
     _log.verbose("Full CMAC=${fullCC.hex()}");
     final cc8 = fullCC.sublist(0, 8);
     _log.verbose("Truncated CC=${cc8.hex()}");
 
+    print("Full CMAC (16 bytes): ${fullCC.hex()}");
+    print("Truncated CC (8 bytes): ${cc8.hex()}");
+
     final do8E = SecureMessaging.do8E(cc8);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
     pcmd.ne = 256; // safer for some cards
+
+    print("DO8E: ${do8E.hex()}");
+    print("Final protected APDU data: ${pcmd.data?.hex()}");
+    print("Final protected APDU: CLA=${pcmd.cla.toRadixString(16)} INS=${pcmd.ins.toRadixString(16)} P1=${pcmd.p1.toRadixString(16)} P2=${pcmd.p2.toRadixString(16)}");
+    print("=== SM PROTECT END ===");
+
     return pcmd;
   }
 
