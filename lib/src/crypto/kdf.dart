@@ -93,8 +93,7 @@ class DeriveKey {
   /// Returns key from [keySeed] bytes for specific [keyType] and
   /// counter mode specific for key type (1 - ENC mode, 2 - MAC mode).
   /// If [paceMode] is true counter 3 for encryption key types.
-  /// NOTE: Despite ICAO 9303-11 suggesting counter=3 for PACE encryption,
-  /// JMRTD uses counter=1 for both BAC and PACE. We follow JMRTD's implementation.
+  /// Romanian eID requires ICAO-compliant counters: 3 for ENC, 4 for MAC in PACE mode.
   static Uint8List derive(final DeriveKeyType keyType, final Uint8List keySeed,
       {final bool paceMode = false}) {
     Int32 mode;
@@ -104,17 +103,16 @@ class DeriveKey {
       case DeriveKeyType.AES128:
       case DeriveKeyType.AES192:
       case DeriveKeyType.AES256:
-        // Encryption Key - always use counter 1
-        // (JMRTD uses c=1 for both BAC and PACE, despite ICAO suggesting c=3 for PACE)
-        mode = Int32(1);
+        // Encryption Key: counter 3 for PACE, 1 for BAC
+        mode = Int32(paceMode ? 3 : 1);
         break;
 
       case DeriveKeyType.ISO9797MacAlg3:
       case DeriveKeyType.CMAC128:
       case DeriveKeyType.CMAC192:
       case DeriveKeyType.CMAC256:
-        // MAC Key - always use counter 2
-        mode = Int32(2);
+        // MAC Key: counter 4 for PACE, 2 for BAC
+        mode = Int32(paceMode ? 4 : 2);
         break;
     }
 
