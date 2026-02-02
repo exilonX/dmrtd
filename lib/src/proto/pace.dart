@@ -910,16 +910,16 @@ class PACE {
 
         _log.debug("=== STEP 4 T-BLOCK DEBUG ===");
         _log.debug(
-            "ICC Ephemeral Public Key (received from card): ${ephemeralPublicICCenvelope.toBytes().hex()}");
+            "ICC Ephemeral Public Key (received from card - SIGNING THIS): ${ephemeralPublicICCenvelope.toBytes().hex()}");
         _log.debug(
-            "PCD Ephemeral Public Key (our own - USED IN T-BLOCK): ${domainParameter.getPubKeyEphemeral().toBytes().hex()}");
+            "PCD Ephemeral Public Key (our own): ${domainParameter.getPubKeyEphemeral().toBytes().hex()}");
 
-        // Standard PACE: PCD signs its own ephemeral public key
+        // PACE: PCD signs ICC's ephemeral public key
         Uint8List calcInputData = PACE.generateEncodingInputData(
             cryptographicMechanism: paceProtocol,
-            publicKeyToSign: domainParameter.getPubKeyEphemeral());
+            publicKeyToSign: ephemeralPublicICCenvelope);
 
-        _log.debug("Generated T-Block: ${calcInputData.hex()}");
+        _log.debug("Generated T-Block (signing ICC's key): ${calcInputData.hex()}");
         _log.debug("T-Block length: ${calcInputData.length} bytes");
 
         Uint8List inputToken = PACE.cacluateAuthToken(
@@ -944,11 +944,11 @@ class PACE {
           _log.debug(
               "Checking if computed auth token is the same as auth token from ICC");
 
-          // Standard PACE: ICC signs its own ephemeral public key
+          // PACE: ICC signs PCD's ephemeral public key, so verify against our own key
           Uint8List calcInputDataTerminalforCheck =
               PACE.generateEncodingInputData(
                   cryptographicMechanism: paceProtocol,
-                  publicKeyToSign: ephemeralPublicICCenvelope);
+                  publicKeyToSign: domainParameter.getPubKeyEphemeral());
 
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
@@ -1116,10 +1116,10 @@ class PACE {
         _log.debug("ENC key: ${encKey.hex()} "
             "MAC key: ${macKey.hex()}");
 
-        // Standard PACE: PCD signs its own ephemeral public key
+        // PACE: PCD signs ICC's ephemeral public key
         Uint8List calcInputData = PACE.generateEncodingInputData(
             cryptographicMechanism: paceProtocol,
-            publicKeyToSign: domainParameter.getPubKeyEphemeral());
+            publicKeyToSign: ephemeralPublicICCenvelope);
 
         Uint8List inputToken = PACE.cacluateAuthToken(
             paceProtocol: paceProtocol,
@@ -1138,11 +1138,11 @@ class PACE {
           apduStep4Pace.parse();
           Uint8List computedAuthTokenICC = apduStep4Pace.authToken;
 
-          // Standard PACE: ICC signs its own ephemeral public key
+          // PACE: ICC signs PCD's ephemeral public key, so verify against our own key
           Uint8List calcInputDataTerminalforCheck =
               PACE.generateEncodingInputData(
                   cryptographicMechanism: paceProtocol,
-                  publicKeyToSign: ephemeralPublicICCenvelope);
+                  publicKeyToSign: domainParameter.getPubKeyEphemeral());
 
           Uint8List inputTokenTerminalforCheck = PACE.cacluateAuthToken(
               paceProtocol: paceProtocol,
