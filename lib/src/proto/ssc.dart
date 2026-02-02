@@ -87,10 +87,11 @@ class SSC {
     print("ICC last 8 bytes: ${iccLast8.hex()}");
     print("IFD last 8 bytes: ${ifdLast8.hex()}");
 
-    // Build SSC: ICC(8) || IFD(8) - NO REPETITION
+    // Build SSC: ICC(8) || IFD(8) per BSI TR-03110 / ICAO 9303
+    // SSC = rightmost 8 bytes of x_PICC || rightmost 8 bytes of x_PCD
     final sscBytes = Uint8List(16);
-    sscBytes.setRange(0, 8, ifdLast8);
-    sscBytes.setRange(8, 16, iccLast8);
+    sscBytes.setRange(0, 8, iccLast8);  // ICC first (PICC)
+    sscBytes.setRange(8, 16, ifdLast8); // IFD second (PCD)
 
     print("Final SSC: ${sscBytes.hex()}");
     return SSC(sscBytes, 128);
