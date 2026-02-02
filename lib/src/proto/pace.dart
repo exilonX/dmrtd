@@ -973,18 +973,11 @@ class PACE {
         _log.debug("Finished PACE SM key establishment");
         _log.debug("Setting up SM session ...");
 
-        // Compute SSC from ephemeral public keys per BSI TR-03110 / ICAO 9303
-        // SSC = last_8_bytes(x_PICC) || last_8_bytes(x_PCD)
-        final iccEphemeralBytes = ephemeralPublicICCenvelope.toBytes();
-        final ifdEphemeralBytes = domainParameter.getPubKeyEphemeral().toBytes();
-        final ssc = SSC.anotherPACE(
-          iccEphemeral: iccEphemeralBytes,
-          ifdEphemeral: ifdEphemeralBytes,
-        );
-
+        // JMRTD approach: SSC initialized to all zeros for PACE
+        // (NOT from ephemeral keys like BAC)
         icc.sm = MrtdSM(
           AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength),
-          ssc,
+          AES_SSC(),
         );
 
         _log.debug("... SM (with ECDH) session is set up.");

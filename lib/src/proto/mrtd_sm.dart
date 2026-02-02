@@ -71,15 +71,22 @@ class MrtdSM extends SecureMessaging {
     }
 
     // === PACE/AES branch ===
-    // For AES SM, always include DO97 with Le=256 (0x00)
-    // This tells the card we expect a protected response
-    final do97ForAes = SecureMessaging.do97(256);
+    // JMRTD approach (verified working):
+    // 1. Header is padded to 16 bytes
+    // 2. DO97 is NOT included when Le=0
+    // 3. MAC input = SSC || Padded_Header || DO87 || DO97 || final_padding
 
-    // Working approach: pad(SSC || header || DO87 || DO97)
-    // Header is NOT padded separately (unlike BAC/DESede)
+    final paddedHeader = ISO9797.pad(header, blockLen());
+
+    // DO97: only include if original command expects response data (ne > 0)
+    // JMRTD does NOT include DO97 for VERIFY PIN (Le=0)
+    final do97ForAes = (pcmd.ne > 0)
+        ? SecureMessaging.do97(pcmd.ne)
+        : Uint8List(0);
+
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
-      ...header,
+      ...paddedHeader,
       ...dataDO,
       ...do97ForAes,
     ]);
@@ -88,8 +95,9 @@ class MrtdSM extends SecureMessaging {
     print("=== SM PROTECT (AES) ===");
     print("SSC: ${_ssc.toBytes().hex()}");
     print("Header (raw 4 bytes): ${header.hex()}");
+    print("Header (padded to 16): ${paddedHeader.hex()}");
     print("DO87: ${dataDO.hex()}");
-    print("DO97 (for AES): ${do97ForAes.hex()}");
+    print("DO97: ${do97ForAes.hex()}");
     print("MAC input (before final pad): ${macInput.hex()}");
     print("MAC input (after final pad): ${paddedMacInput.hex()}");
     _log.verbose("MAC input (before padding)=${macInput.hex()}");
