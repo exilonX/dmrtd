@@ -80,55 +80,27 @@ class MrtdSM extends SecureMessaging {
     }
 
     // === PACE/AES branch ===
-    // Per ICAO 9303-11: MAC input = SSC || pad16(masked_header) || DO87 || DO97, then M2 pad
-    // The masked header MUST be padded to 16 bytes BEFORE concatenation with DOs
-    final paddedHeader = ISO9797.pad(header, blockLen()); // => 16 bytes
-
-    // Build body with padded header + present DOs
-    final macBody = Uint8List.fromList([
-      ...paddedHeader, // padded masked header (16 bytes)
-      ...dataDO, // DO87 if data present
-      ...do97, // DO97 if Le present
-    ]);
-
-    _log.verbose("paddedHeader=${paddedHeader.hex()}");
-    _log.verbose("dataDO=${dataDO.hex()}");
-    _log.verbose("do97=${do97.hex()}");
-
-    // MAC input is SSC || pad16(macBody)
+    // Working approach: concatenate SSC + header + DOs, then pad once
     final macInput = Uint8List.fromList([
-      ..._ssc.toBytes(), // 16 bytes
-      ...ISO9797.pad(macBody, blockLen()), // padded body
+      ..._ssc.toBytes(),
+      ...header,
+      ...dataDO,
+      ...do97,
     ]);
+    final paddedMacInput = ISO9797.pad(macInput, blockLen());
 
-    _log.verbose("MAC input=${macInput.hex()}");
-    _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
+    _log.verbose("MAC input (before padding)=${macInput.hex()}");
+    _log.verbose("MAC input (after padding)=${paddedMacInput.hex()}");
 
-    print("=== MrtdSM.protect() calling cipher.mac() ===");
-    print("MAC input length: ${macInput.length}");
-    print("MAC input: ${macInput.hex()}");
+    final fullCC = cipher.mac(paddedMacInput);
 
-    final fullCC = cipher.mac(macInput);
+    _log.verbose("Full CMAC=${fullCC.hex()}");
+    final cc8 = fullCC.sublist(0, 8);
+    _log.verbose("Truncated CC=${cc8.hex()}");
 
-    print("Back from cipher.mac()");
-    print("fullCC length: ${fullCC.length}");
-    print("fullCC: ${fullCC.hex()}");
-
-    if (fullCC.length != 16) {
-      print("*** WARNING: Expected 16 bytes, got ${fullCC.length} bytes! ***");
-    }
-
-    _log.verbose("Full 16-byte CMAC=${fullCC.hex()}");
-    final macFragment = Uint8List.fromList(fullCC.sublist(0, 8));
-    _log.verbose("MACFragment CC=${macFragment.hex()}");
-    print("Truncated to 8 bytes: ${macFragment.hex()}");
-
-    final do8E = SecureMessaging.do8E(macFragment);
+    final do8E = SecureMessaging.do8E(cc8);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-    // JMRTD appends Le=00 for all protected APDUs (even when DO'97' is omitted)
-    // This provides case-4 framing that many cards expect
-    pcmd.ne = 256; // Encodes as trailing 0x00 byte on wire
-    _log.verbose("Protected APDU: ${pcmd.toString()}");
+    pcmd.ne = 256; // safer for some cards
     return pcmd;
   }
 
@@ -150,29 +122,15 @@ class MrtdSM extends SecureMessaging {
     final do8EStart = (tvDataDO?.encodedLen ?? 0) + do99.encodedLen;
     final do8E = parseDO8EFromRAPDU(rapdu, do8EStart);
 
-    Uint8List macMaterial;
-    Uint8List CC;
-    if (cipher.type == CipherAlgorithm.DESede) {
-      macMaterial = generateK(data: rapdu.data!.sublist(0, do8EStart));
-      CC = cipher.mac(macMaterial);
-    } else {
-      // For AES/PACE: pad the response body before computing MAC
-      final responseBody = rapdu.data!.sublist(0, do8EStart);
-      final paddedBody = ISO9797.pad(responseBody, blockLen());
-      macMaterial = Uint8List.fromList([
-        ..._ssc.toBytes(),
-        ...paddedBody,
-      ]);
-      CC = cipher.mac(macMaterial);
-    }
+    // MAC verification: pad(SSC || responseBody) - same approach as protect()
+    final K = generateK(data: rapdu.data!.sublist(0, do8EStart));
+    final CC = cipher.mac(K);
 
-    _log.verbose("MAC input=${macMaterial.hex()}");
+    _log.verbose("Generated K=${K.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
     _log.verbose("APDU CC=${do8E.value.hex()}");
     _log.verbose("Calculated CC=${CC.hex()}");
-
-    final expectedMacFragment = CC.sublist(0, do8E.value.length);
-    if (!_eq(expectedMacFragment, do8E.value)) {
+    if (!_eq(CC, do8E.value)) {
       throw SMError("Invalid MAC of response APDU");
     }
     final data = decryptDataDO(tvDataDO);
