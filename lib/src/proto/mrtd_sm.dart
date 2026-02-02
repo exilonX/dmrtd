@@ -71,23 +71,25 @@ class MrtdSM extends SecureMessaging {
     }
 
     // === PACE/AES branch ===
-    // BSI TR-03110-3 Annex B: M = SSC || CmdHeader* || DO87 || DO97
-    // CmdHeader* is the padded command header (ISO 9797-1 method 2)
-    final paddedHeader = ISO9797.pad(header, blockLen());
+    // For AES SM, always include DO97 with Le=256 (0x00)
+    // This tells the card we expect a protected response
+    final do97ForAes = SecureMessaging.do97(256);
+
+    // Working approach: pad(SSC || header || DO87 || DO97)
+    // Header is NOT padded separately (unlike BAC/DESede)
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
-      ...paddedHeader,
+      ...header,
       ...dataDO,
-      ...do97,
+      ...do97ForAes,
     ]);
     final paddedMacInput = ISO9797.pad(macInput, blockLen());
 
     print("=== SM PROTECT (AES) ===");
     print("SSC: ${_ssc.toBytes().hex()}");
     print("Header (raw 4 bytes): ${header.hex()}");
-    print("Header (padded to 16): ${paddedHeader.hex()}");
     print("DO87: ${dataDO.hex()}");
-    print("DO97: ${do97.hex()}");
+    print("DO97 (for AES): ${do97ForAes.hex()}");
     print("MAC input (before final pad): ${macInput.hex()}");
     print("MAC input (after final pad): ${paddedMacInput.hex()}");
     _log.verbose("MAC input (before padding)=${macInput.hex()}");
@@ -103,8 +105,8 @@ class MrtdSM extends SecureMessaging {
     print("Truncated CC (8 bytes): ${cc8.hex()}");
 
     final do8E = SecureMessaging.do8E(cc8);
-    pcmd.data = Uint8List.fromList([...dataDO, ...do97, ...do8E]);
-    pcmd.ne = 256; // safer for some cards
+    pcmd.data = Uint8List.fromList([...dataDO, ...do97ForAes, ...do8E]);
+    pcmd.ne = 256;
 
     print("DO8E: ${do8E.hex()}");
     print("Final protected APDU data: ${pcmd.data?.hex()}");
