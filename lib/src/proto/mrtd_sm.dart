@@ -82,13 +82,14 @@ class MrtdSM extends SecureMessaging {
         ? SecureMessaging.do97(pcmd.ne)
         : Uint8List(0);
 
-    final macInput = Uint8List.fromList([
+    final macInputUnpadded = Uint8List.fromList([
       ..._ssc.toBytes(),
       ...paddedHeader,
       ...dataDO,
       ...do97ForAes,
     ]);
-    // Do NOT pre-pad - let CMAC handle padding internally (uses K2 for incomplete blocks)
+    // JMRTD pre-pads MAC input to block boundary (uses K1 for complete blocks)
+    final macInput = ISO9797.pad(macInputUnpadded, blockLen());
 
     print("=== SM PROTECT (AES) ===");
     print("SSC: ${_ssc.toBytes().hex()}");
@@ -96,7 +97,8 @@ class MrtdSM extends SecureMessaging {
     print("Header (padded to 16): ${paddedHeader.hex()}");
     print("DO87: ${dataDO.hex()}");
     print("DO97: ${do97ForAes.hex()}");
-    print("MAC input (no pre-padding, ${macInput.length} bytes): ${macInput.hex()}");
+    print("MAC input (unpadded, ${macInputUnpadded.length} bytes): ${macInputUnpadded.hex()}");
+    print("MAC input (padded, ${macInput.length} bytes): ${macInput.hex()}");
     _log.verbose("MAC input=${macInput.hex()}");
 
     fullCC = cipher.mac(macInput);
