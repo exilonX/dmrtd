@@ -70,21 +70,21 @@ class DeriveKey {
   }
 
   /// Returns key for AES-128 derived from [keySeed] bytes.
-  /// Counter: 1 for BAC, 3 for PACE.
+  /// Always uses counter=1 (JMRTD compatible).
   static Uint8List aes128(final Uint8List keySeed,
       {final bool paceMode = false}) {
     return derive(DeriveKeyType.AES128, keySeed, paceMode: paceMode);
   }
 
   /// Returns key for AES-192 derived from [keySeed] bytes.
-  /// Counter: 1 for BAC, 3 for PACE.
+  /// Always uses counter=1 (JMRTD compatible).
   static Uint8List aes192(final Uint8List keySeed,
       {final bool paceMode = false}) {
     return derive(DeriveKeyType.AES192, keySeed, paceMode: paceMode);
   }
 
   /// Returns key for AES-256 derived from [keySeed] bytes.
-  /// Counter: 1 for BAC, 3 for PACE.
+  /// Always uses counter=1 (JMRTD compatible).
   static Uint8List aes256(final Uint8List keySeed,
       {final bool paceMode = false}) {
     return derive(DeriveKeyType.AES256, keySeed, paceMode: paceMode);
@@ -92,8 +92,7 @@ class DeriveKey {
 
   /// Returns key from [keySeed] bytes for specific [keyType] and
   /// counter mode specific for key type (1 - ENC mode, 2 - MAC mode).
-  /// If [paceMode] is true counter 3 for encryption key types.
-  /// Romanian eID requires ICAO-compliant counters: 3 for ENC, 4 for MAC in PACE mode.
+  /// Uses JMRTD-compatible counters: 1 for encryption, 2 for MAC.
   static Uint8List derive(final DeriveKeyType keyType, final Uint8List keySeed,
       {final bool paceMode = false}) {
     Int32 mode;
@@ -103,16 +102,16 @@ class DeriveKey {
       case DeriveKeyType.AES128:
       case DeriveKeyType.AES192:
       case DeriveKeyType.AES256:
-        // Encryption Key: counter 3 for PACE, 1 for BAC
-        mode = Int32(paceMode ? 3 : 1);
+        // Encryption Key: always counter=1 (JMRTD uses ENC_MODE=1)
+        mode = Int32(1);
         break;
 
       case DeriveKeyType.ISO9797MacAlg3:
       case DeriveKeyType.CMAC128:
       case DeriveKeyType.CMAC192:
       case DeriveKeyType.CMAC256:
-        // MAC Key: counter 4 for PACE, 2 for BAC
-        mode = Int32(paceMode ? 4 : 2);
+        // MAC Key: always counter=2 (JMRTD uses MAC_MODE=2)
+        mode = Int32(2);
         break;
     }
 
