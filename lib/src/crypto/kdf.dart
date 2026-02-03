@@ -69,25 +69,25 @@ class DeriveKey {
     return derive(DeriveKeyType.DESede, keySeed, paceMode: paceMode);
   }
 
-  /// Returns key for AES-128 derived from [keySeed] bytes and counter mode 1.
-  /// Note: Always uses counter=1 (Romanian eID requires this).
+  /// Returns key for AES-128 derived from [keySeed] bytes.
+  /// Counter: 1 for BAC, 3 for PACE.
   static Uint8List aes128(final Uint8List keySeed,
       {final bool paceMode = false}) {
-    return derive(DeriveKeyType.AES128, keySeed);
+    return derive(DeriveKeyType.AES128, keySeed, paceMode: paceMode);
   }
 
-  /// Returns key for AES-192 derived from [keySeed] bytes and counter mode 1.
-  /// Note: Always uses counter=1 (Romanian eID requires this).
+  /// Returns key for AES-192 derived from [keySeed] bytes.
+  /// Counter: 1 for BAC, 3 for PACE.
   static Uint8List aes192(final Uint8List keySeed,
       {final bool paceMode = false}) {
-    return derive(DeriveKeyType.AES192, keySeed);
+    return derive(DeriveKeyType.AES192, keySeed, paceMode: paceMode);
   }
 
-  /// Returns key for AES-256 derived from [keySeed] bytes and counter mode 1.
-  /// Note: Always uses counter=1 (Romanian eID requires this).
+  /// Returns key for AES-256 derived from [keySeed] bytes.
+  /// Counter: 1 for BAC, 3 for PACE.
   static Uint8List aes256(final Uint8List keySeed,
       {final bool paceMode = false}) {
-    return derive(DeriveKeyType.AES256, keySeed);
+    return derive(DeriveKeyType.AES256, keySeed, paceMode: paceMode);
   }
 
   /// Returns key from [keySeed] bytes for specific [keyType] and
