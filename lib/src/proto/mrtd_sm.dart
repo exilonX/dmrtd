@@ -76,11 +76,15 @@ class MrtdSM extends SecureMessaging {
 
     final paddedHeader = ISO9797.pad(header, blockLen());
 
-    // Include DO97 only if response data is expected (ne > 0)
-    // JMRTD does NOT include DO97 when Le=0 (no expected response)
-    final do97ForAes = (pcmd.ne > 0)
-        ? SecureMessaging.do97(pcmd.ne)
-        : Uint8List(0);
+    // Always include DO97 for AES-SM (some cards like Romanian eID require it)
+    // Encode Le=0 as 97 01 00, Le=256 as 97 01 00, Le=65536 as 97 02 00 00
+    final Uint8List do97ForAes;
+    if (pcmd.ne == 0) {
+      // Le=0: encode as 97 01 00 (not omitted!)
+      do97ForAes = Uint8List.fromList([0x97, 0x01, 0x00]);
+    } else {
+      do97ForAes = SecureMessaging.do97(pcmd.ne);
+    }
 
     final macInputUnpadded = Uint8List.fromList([
       ..._ssc.toBytes(),
