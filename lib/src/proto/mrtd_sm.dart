@@ -210,8 +210,9 @@ class MrtdSM extends SecureMessaging {
 
   @visibleForTesting
   Uint8List generateK({required final Uint8List data}) {
-    // DO NOT pre-pad! CMAC handles padding internally.
-    return Uint8List.fromList(_ssc.toBytes() + data);
+    // Pre-pad to block boundary for consistency with protect() - JMRTD behavior
+    final unpadded = Uint8List.fromList(_ssc.toBytes() + data);
+    return ISO9797.pad(unpadded, blockLen());
   }
 
   @visibleForTesting
