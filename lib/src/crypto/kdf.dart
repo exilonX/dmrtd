@@ -41,25 +41,25 @@ class DeriveKey {
     return derive(DeriveKeyType.ISO9797MacAlg3, keySeed);
   }
 
-  /// Returns key for CMAC-128 derived from [keySeed] bytes and counter mode 2.
-  /// Note: Always uses counter=2, regardless of paceMode flag.
+  /// Returns key for CMAC-128 derived from [keySeed] bytes.
+  /// Counter: 2 for BAC, 4 for PACE (per ICAO 9303-11).
   static Uint8List cmac128(final Uint8List keySeed,
       {final bool paceMode = false}) {
-    return derive(DeriveKeyType.CMAC128, keySeed);
+    return derive(DeriveKeyType.CMAC128, keySeed, paceMode: paceMode);
   }
 
-  /// Returns key for CMAC-192 derived from [keySeed] bytes and counter mode 2.
-  /// Note: Always uses counter=2, regardless of paceMode flag.
+  /// Returns key for CMAC-192 derived from [keySeed] bytes.
+  /// Counter: 2 for BAC, 4 for PACE (per ICAO 9303-11).
   static Uint8List cmac192(final Uint8List keySeed,
       {final bool paceMode = false}) {
-    return derive(DeriveKeyType.CMAC192, keySeed);
+    return derive(DeriveKeyType.CMAC192, keySeed, paceMode: paceMode);
   }
 
-  /// Returns key for CMAC-256 derived from [keySeed] bytes and counter mode 2.
-  /// Note: Always uses counter=2, regardless of paceMode flag.
+  /// Returns key for CMAC-256 derived from [keySeed] bytes.
+  /// Counter: 2 for BAC, 4 for PACE (per ICAO 9303-11).
   static Uint8List cmac256(final Uint8List keySeed,
       {final bool paceMode = false}) {
-    return derive(DeriveKeyType.CMAC256, keySeed);
+    return derive(DeriveKeyType.CMAC256, keySeed, paceMode: paceMode);
   }
 
   /// Returns key for DESede derived from [keySeed] bytes and counter mode 1.
