@@ -70,37 +70,38 @@ class MrtdSM extends SecureMessaging {
       return pcmd;
     }
 
-    // === PACE/AES branch ===
-    // Revert to JMRTD approach: padded header + pre-padded MAC input
-    // But ALWAYS include DO97 (some cards require it)
+    // === PACE/AES branch (JMRTD-compatible) ===
+    // 1. Padded header (16 bytes)
+    // 2. DO87 if data present
+    // 3. DO97 ONLY if Le>0 (omit when Le=0)
+    // 4. Pre-pad MAC input to block boundary
 
     final paddedHeader = ISO9797.pad(header, blockLen());
 
-    // Always include DO97 for AES-SM (some cards like Romanian eID require it)
-    // Encode Le=0 as 97 01 00, Le=256 as 97 01 00, Le=65536 as 97 02 00 00
+    // JMRTD behavior: omit DO97 when Le=0, include when Le>0
     final Uint8List do97ForAes;
     if (pcmd.ne == 0) {
-      // Le=0: encode as 97 01 00 (not omitted!)
-      do97ForAes = Uint8List.fromList([0x97, 0x01, 0x00]);
+      // Le=0: omit DO97 entirely (JMRTD behavior - verified working)
+      do97ForAes = Uint8List(0);
     } else {
       do97ForAes = SecureMessaging.do97(pcmd.ne);
     }
 
+    // JMRTD approach: pre-pad MAC input to block boundary
     final macInputUnpadded = Uint8List.fromList([
       ..._ssc.toBytes(),
       ...paddedHeader,
       ...dataDO,
       ...do97ForAes,
     ]);
-    // JMRTD pre-pads MAC input to block boundary (uses K1 for complete blocks)
     final macInput = ISO9797.pad(macInputUnpadded, blockLen());
 
     print("=== SM PROTECT (AES) ===");
     print("SSC: ${_ssc.toBytes().hex()}");
     print("Header (raw 4 bytes): ${header.hex()}");
     print("Header (padded to 16): ${paddedHeader.hex()}");
-    print("DO87: ${dataDO.hex()}");
-    print("DO97: ${do97ForAes.hex()}");
+    print("DO87 (${dataDO.length} bytes): ${dataDO.hex()}");
+    print("DO97 (${do97ForAes.length} bytes): ${do97ForAes.hex()}");
     print("MAC input (unpadded, ${macInputUnpadded.length} bytes): ${macInputUnpadded.hex()}");
     print("MAC input (padded, ${macInput.length} bytes): ${macInput.hex()}");
     _log.verbose("MAC input=${macInput.hex()}");

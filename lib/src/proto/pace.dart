@@ -973,8 +973,7 @@ class PACE {
         _log.debug("Finished PACE SM key establishment");
         _log.debug("Setting up SM session ...");
 
-        // JMRTD approach: SSC initialized to all zeros for PACE
-        // (NOT from ephemeral keys like BAC)
+        // PACE/AES: SSC initialized to 0 per ICAO 9303
         icc.sm = MrtdSM(
           AES_SMCipher(encKey, macKey, size: paceProtocol.keyLength),
           AES_SSC(),
