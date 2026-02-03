@@ -147,12 +147,15 @@ class MrtdSM extends SecureMessaging {
 
     // MAC verification: pad(SSC || responseBody) - same approach as protect()
     final K = generateK(data: rapdu.data!.sublist(0, do8EStart));
-    final CC = cipher.mac(K);
+    final fullCC = cipher.mac(K);
+    // Truncate CMAC to 8 bytes for comparison (same as protect())
+    final CC = fullCC.sublist(0, 8);
 
     _log.verbose("Generated K=${K.hex()}");
     _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
     _log.verbose("APDU CC=${do8E.value.hex()}");
-    _log.verbose("Calculated CC=${CC.hex()}");
+    _log.verbose("Calculated full CC=${fullCC.hex()}");
+    _log.verbose("Calculated truncated CC=${CC.hex()}");
     if (!_eq(CC, do8E.value)) {
       throw SMError("Invalid MAC of response APDU");
     }
