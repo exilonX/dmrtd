@@ -13,6 +13,8 @@ import 'command_apdu.dart';
 import 'iso7816.dart';
 import 'response_apdu.dart';
 import 'sm.dart';
+import '../mrtd_sm.dart';
+import '../aes_smcipher.dart';
 
 class ICCError implements Exception {
   final String message;
@@ -466,9 +468,26 @@ class ICC {
   }
 
   CommandAPDU _wrap(final CommandAPDU cmd) {
+    print("=== ICC._wrap() DEBUG ===");
+    print("ICC instance: ${identityHashCode(this)}");
+    print("SM is null: ${sm == null}");
     if (sm != null) {
+      print("SM type: ${sm.runtimeType}");
+      print("SM cipher type: ${sm!.cipher.runtimeType}");
+      // Print keys if available
+      if (sm is MrtdSM) {
+        final mrtdSm = sm as MrtdSM;
+        if (mrtdSm.cipher is AES_SMCipher) {
+          final aesCipher = mrtdSm.cipher as AES_SMCipher;
+          print("K_enc: ${aesCipher.KSenc.hex()}");
+          print("K_mac: ${aesCipher.KSmac.hex()}");
+        }
+        print("Current SSC: ${mrtdSm.ssc.toBytes().hex()}");
+      }
+      print("=== Calling sm.protect() ===");
       return sm!.protect(cmd);
     }
+    print("=== NO SM - sending unprotected ===");
     return cmd;
   }
 

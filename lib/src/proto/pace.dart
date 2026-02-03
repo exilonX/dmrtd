@@ -973,6 +973,12 @@ class PACE {
         _log.debug("Finished PACE SM key establishment");
         _log.debug("Setting up SM session ...");
 
+        print("=== PACE: Setting SM on ICC ===");
+        print("ICC instance ID: ${identityHashCode(icc)}");
+        print("K_enc being set: ${encKey.hex()}");
+        print("K_mac being set: ${macKey.hex()}");
+        print("Key length: ${paceProtocol.keyLength}");
+
         // JMRTD approach: SSC initialized to all zeros for PACE
         // (NOT from ephemeral keys like BAC)
         icc.sm = MrtdSM(
@@ -980,6 +986,7 @@ class PACE {
           AES_SSC(),
         );
 
+        print("SM set successfully on ICC ${identityHashCode(icc)}");
         _log.debug("... SM (with ECDH) session is set up.");
       } on Exception catch (e) {
         _log.error("PACE <ECDH> (4); Failed: $e");
