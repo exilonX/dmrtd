@@ -76,8 +76,11 @@ class MrtdSM extends SecureMessaging {
 
     final paddedHeader = ISO9797.pad(header, blockLen());
 
-    // ALWAYS include DO97 - use 256 (encoded as 0x00) for "return all"
-    final do97ForAes = SecureMessaging.do97(256);
+    // Include DO97 only if response data is expected (ne > 0)
+    // JMRTD does NOT include DO97 when Le=0 (no expected response)
+    final do97ForAes = (pcmd.ne > 0)
+        ? SecureMessaging.do97(pcmd.ne)
+        : Uint8List(0);
 
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
