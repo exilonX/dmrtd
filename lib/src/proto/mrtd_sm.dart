@@ -71,35 +71,27 @@ class MrtdSM extends SecureMessaging {
     }
 
     // === PACE/AES branch ===
-    // JMRTD approach (verified working):
-    // 1. Header is padded to 16 bytes
-    // 2. DO97 is NOT included when Le=0
-    // 3. MAC input = SSC || Padded_Header || DO87 || DO97 || final_padding
-
-    final paddedHeader = ISO9797.pad(header, blockLen());
+    // Try: raw header (no padding), CMAC handles padding internally
 
     // DO97: only include if original command expects response data (ne > 0)
-    // JMRTD does NOT include DO97 for VERIFY PIN (Le=0)
     final do97ForAes = (pcmd.ne > 0)
         ? SecureMessaging.do97(pcmd.ne)
         : Uint8List(0);
 
+    // Try raw header (4 bytes) instead of padded (16 bytes)
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
-      ...paddedHeader,
+      ...header,  // raw 4-byte header, NOT padded
       ...dataDO,
       ...do97ForAes,
     ]);
-    // NO pre-padding - let CMAC handle padding internally (uses K2 like auth token)
-    // This matches the auth token calculation which also doesn't pre-pad
 
     print("=== SM PROTECT (AES) ===");
     print("SSC: ${_ssc.toBytes().hex()}");
     print("Header (raw 4 bytes): ${header.hex()}");
-    print("Header (padded to 16): ${paddedHeader.hex()}");
     print("DO87: ${dataDO.hex()}");
     print("DO97: ${do97ForAes.hex()}");
-    print("MAC input (no pre-padding): ${macInput.hex()}");
+    print("MAC input: ${macInput.hex()}");
     print("MAC input length: ${macInput.length} bytes");
     _log.verbose("MAC input=${macInput.hex()}");
 
