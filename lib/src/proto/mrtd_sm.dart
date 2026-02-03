@@ -71,31 +71,35 @@ class MrtdSM extends SecureMessaging {
     }
 
     // === PACE/AES branch ===
-    // Try: raw header (no padding), CMAC handles padding internally
+    // Revert to JMRTD approach: padded header + pre-padded MAC input
+    // But ALWAYS include DO97 (some cards require it)
 
-    // DO97: only include if original command expects response data (ne > 0)
-    final do97ForAes = (pcmd.ne > 0)
-        ? SecureMessaging.do97(pcmd.ne)
-        : Uint8List(0);
+    final paddedHeader = ISO9797.pad(header, blockLen());
 
-    // Try raw header (4 bytes) instead of padded (16 bytes)
+    // ALWAYS include DO97 - use 256 (encoded as 0x00) for "return all"
+    final do97ForAes = SecureMessaging.do97(256);
+
     final macInput = Uint8List.fromList([
       ..._ssc.toBytes(),
-      ...header,  // raw 4-byte header, NOT padded
+      ...paddedHeader,
       ...dataDO,
       ...do97ForAes,
     ]);
+    // Pre-pad to block size (JMRTD approach)
+    final paddedMacInput = ISO9797.pad(macInput, blockLen());
 
     print("=== SM PROTECT (AES) ===");
     print("SSC: ${_ssc.toBytes().hex()}");
     print("Header (raw 4 bytes): ${header.hex()}");
+    print("Header (padded to 16): ${paddedHeader.hex()}");
     print("DO87: ${dataDO.hex()}");
     print("DO97: ${do97ForAes.hex()}");
-    print("MAC input: ${macInput.hex()}");
-    print("MAC input length: ${macInput.length} bytes");
-    _log.verbose("MAC input=${macInput.hex()}");
+    print("MAC input (unpadded): ${macInput.hex()}");
+    print("MAC input (padded): ${paddedMacInput.hex()}");
+    print("MAC input length: ${paddedMacInput.length} bytes");
+    _log.verbose("MAC input=${paddedMacInput.hex()}");
 
-    fullCC = cipher.mac(macInput);
+    fullCC = cipher.mac(paddedMacInput);
 
     _log.verbose("Full CMAC=${fullCC.hex()}");
     final cc8 = fullCC.sublist(0, 8);
