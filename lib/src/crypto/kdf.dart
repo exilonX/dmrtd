@@ -102,8 +102,10 @@ class DeriveKey {
       case DeriveKeyType.AES128:
       case DeriveKeyType.AES192:
       case DeriveKeyType.AES256:
-        // Encryption Key: always counter=1 (JMRTD uses ENC_MODE=1)
-        mode = Int32(1);
+        // Encryption Key: counter=3 for PACE K_pi, counter=1 for SM keys
+        // paceMode=true: K_pi derivation (needs counter=3)
+        // paceMode=false: SM session key derivation (needs counter=1, JMRTD-compatible)
+        mode = Int32(paceMode ? 3 : 1);
         break;
 
       case DeriveKeyType.ISO9797MacAlg3:

@@ -512,27 +512,29 @@ class PACE {
         "Cipher algorithm: $cipherAlgorithm");
 
     Uint8List derivedKey;
+    // SM session keys use paceMode=false (counter=1) per JMRTD behavior
+    // This is different from K_pi which uses paceMode=true (counter=3)
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       if (keyLength == KEY_LENGTH.s128) {
         _log.debug("Cipher algorithm: AES, Key length: 128 bits");
-        print("Calling DeriveKey.aes128()...");
-        derivedKey = DeriveKey.aes128(seed, paceMode: true);
+        print("Calling DeriveKey.aes128(paceMode: false) for SM K_enc...");
+        derivedKey = DeriveKey.aes128(seed, paceMode: false);
       } else if (keyLength == KEY_LENGTH.s192) {
         _log.debug("Cipher algorithm: AES, Key length: 192 bits");
-        print("Calling DeriveKey.aes192()...");
-        derivedKey = DeriveKey.aes192(seed, paceMode: true);
+        print("Calling DeriveKey.aes192(paceMode: false) for SM K_enc...");
+        derivedKey = DeriveKey.aes192(seed, paceMode: false);
       } else if (keyLength == KEY_LENGTH.s256) {
         _log.debug("Cipher algorithm: AES, Key length: 256 bits");
-        print("Calling DeriveKey.aes256()...");
-        derivedKey = DeriveKey.aes256(seed, paceMode: true);
+        print("Calling DeriveKey.aes256(paceMode: false) for SM K_enc...");
+        derivedKey = DeriveKey.aes256(seed, paceMode: false);
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      print("Calling DeriveKey.desEDE()...");
-      derivedKey = DeriveKey.desEDE(seed, paceMode: true);
+      print("Calling DeriveKey.desEDE(paceMode: false) for SM K_enc...");
+      derivedKey = DeriveKey.desEDE(seed, paceMode: false);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
@@ -551,27 +553,28 @@ class PACE {
         "Key length: $keyLength, "
         "Cipher algorithm: $cipherAlgorithm");
 
+    // SM session keys use paceMode=false (counter=2) per JMRTD behavior
     Uint8List derivedKey;
     if (cipherAlgorithm == CipherAlgorithm.AES) {
       if (keyLength == KEY_LENGTH.s128) {
         _log.debug("Cipher algorithm: AES, Key length: 128 bits");
-        print("Calling DeriveKey.cmac128()...");
-        derivedKey = DeriveKey.cmac128(seed, paceMode: true);
+        print("Calling DeriveKey.cmac128(paceMode: false) for SM K_mac...");
+        derivedKey = DeriveKey.cmac128(seed, paceMode: false);
       } else if (keyLength == KEY_LENGTH.s192) {
         _log.debug("Cipher algorithm: AES, Key length: 192 bits");
-        print("Calling DeriveKey.cmac192()...");
-        derivedKey = DeriveKey.cmac192(seed, paceMode: true);
+        print("Calling DeriveKey.cmac192(paceMode: false) for SM K_mac...");
+        derivedKey = DeriveKey.cmac192(seed, paceMode: false);
       } else if (keyLength == KEY_LENGTH.s256) {
         _log.debug("Cipher algorithm: AES, Key length: 256 bits");
-        print("Calling DeriveKey.cmac256()...");
-        derivedKey = DeriveKey.cmac256(seed, paceMode: true);
+        print("Calling DeriveKey.cmac256(paceMode: false) for SM K_mac...");
+        derivedKey = DeriveKey.cmac256(seed, paceMode: false);
       } else {
         _log.error("Key length is not supported");
         throw PACEError("Key length is not supported");
       }
     } else if (cipherAlgorithm == CipherAlgorithm.DESede) {
       _log.debug("Cipher algorithm: DESede.");
-      derivedKey = DeriveKey.desEDE(seed, paceMode: true);
+      derivedKey = DeriveKey.desEDE(seed, paceMode: false);
     } else {
       _log.error("Cipher algorithm is not supported");
       throw PACEError("Cipher algorithm is not supported");
