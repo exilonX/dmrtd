@@ -33,7 +33,7 @@ class MrtdSMBAC extends SecureMessaging {
   MrtdSMBAC(SMCipher smCipher, this._ssc) : super(smCipher);
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
-    _log.debug("Protecting APDU");
+    // _log.debug("Protecting APDU");
     _ssc.increment();
 
     final pcmd = maskCmd(cmd);
@@ -47,7 +47,7 @@ class MrtdSMBAC extends SecureMessaging {
     Uint8List macFragment;
 
     if (cipher.type == CipherAlgorithm.DESede) {
-      print("=== BAC DESede branch ===");
+      // print("=== BAC DESede branch ===");
       // === BAC branch ===
       final M = generateM(cmd: pcmd, dataDO: dataDO, do97: do97);
       final N = generateN(M: M); // ISO9797 padded
@@ -56,7 +56,7 @@ class MrtdSMBAC extends SecureMessaging {
       // Keep BAC convention
       macFragment = fullCC; // fullCC already 8 bytes
     } else {
-      print("=== PACE AES branch ===");
+      // print("=== PACE AES branch ===");
 
       final macInput = Uint8List.fromList([
         ..._ssc.toBytes(),
@@ -106,10 +106,10 @@ class MrtdSMBAC extends SecureMessaging {
       CC = cipher.mac(macMaterial);
     }
 
-    _log.verbose("MAC input=${macMaterial.hex()}");
-    _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
-    _log.verbose("APDU CC=${do8E.value.hex()}");
-    _log.verbose("Calculated CC=${CC.hex()}");
+    // _log.verbose("MAC input=${macMaterial.hex()}");
+    // _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
+    // _log.verbose("APDU CC=${do8E.value.hex()}");
+    // _log.verbose("Calculated CC=${CC.hex()}");
 
     final expectedMacFragment = CC.sublist(0, do8E.value.length);
     if (!_eq(expectedMacFragment, do8E.value)) {
@@ -138,11 +138,11 @@ class MrtdSMBAC extends SecureMessaging {
         !isDO87 || dtv.value[0] == 0x01; // Defined in ISO/IEC 7816-4 part 5
     var data = cipher.decrypt(dtv.value.sublist(isDO87 ? 1 : 0),
         ssc: _ssc); // SSC is used only in AES
-    _log.sdVerbose("Decrypted data=${data.hex()}");
-    _log.sdVerbose("Decrypted data is padded: $padded");
+    // _log.sdVerbose("Decrypted data=${data.hex()}");
+    // _log.sdVerbose("Decrypted data is padded: $padded");
     if (padded) {
       data = ISO9797.unpad(data);
-      _log.sdVerbose("Unpadded data=${data.hex()}");
+      // _log.sdVerbose("Unpadded data=${data.hex()}");
     }
     return data;
   }

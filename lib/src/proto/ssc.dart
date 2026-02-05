@@ -54,9 +54,9 @@ class SSC {
     required Uint8List iccEphemeral,
     required Uint8List ifdEphemeral,
   }) {
-    print("=== SSC.fromPACE DEBUG ===");
-    print("ICC ephemeral input: ${iccEphemeral.hex()}");
-    print("IFD ephemeral input: ${ifdEphemeral.hex()}");
+    // print("=== SSC.fromPACE DEBUG ===");
+    // print("ICC ephemeral input: ${iccEphemeral.hex()}");
+    // print("IFD ephemeral input: ${ifdEphemeral.hex()}");
 
     final concatenated = Uint8List.fromList([...iccEphemeral, ...ifdEphemeral]);
     final hash = sha1.convert(concatenated).bytes;
@@ -84,16 +84,16 @@ class SSC {
     final iccLast8 = iccX.sublist(iccX.length - 8); // Last 8 bytes
     final ifdLast8 = ifdX.sublist(ifdX.length - 8); // Last 8 bytes
 
-    print("ICC last 8 bytes: ${iccLast8.hex()}");
-    print("IFD last 8 bytes: ${ifdLast8.hex()}");
+    // print("ICC last 8 bytes: ${iccLast8.hex()}");
+    // print("IFD last 8 bytes: ${ifdLast8.hex()}");
 
     // Build SSC: ICC(8) || IFD(8) per BSI TR-03110 / ICAO 9303
     // SSC = rightmost 8 bytes of x_PICC || rightmost 8 bytes of x_PCD
     final sscBytes = Uint8List(16);
-    sscBytes.setRange(0, 8, iccLast8);  // ICC first (PICC)
+    sscBytes.setRange(0, 8, iccLast8); // ICC first (PICC)
     sscBytes.setRange(8, 16, ifdLast8); // IFD second (PCD)
 
-    print("Final SSC: ${sscBytes.hex()}");
+    // print("Final SSC: ${sscBytes.hex()}");
     return SSC(sscBytes, 128);
   }
 
@@ -108,9 +108,9 @@ class SSC {
       if (carry == 0) break;
     }
     _ssc = BigInt.parse(sscBytes.hex(), radix: 16);
-    print("=== SSC.increment() ===");
-    print("Before: ${sscBytesBefore.hex()}");
-    print("After:  ${toBytes().hex()}");
+    // print("=== SSC.increment() ===");
+    // print("Before: ${sscBytesBefore.hex()}");
+    // print("After:  ${toBytes().hex()}");
   }
 
   Uint8List toBytes() {
@@ -131,10 +131,10 @@ class DESede_PACE_SSC extends SSC {
 class AES_SSC extends SSC {
   // icao 9303 p11 doc section 9.8.7.3 specifies that AES SSC is 16 bytes long and is initialized to 0.
   AES_SSC() : super(Uint8List(16), AESCipher128().size * 8) {
-    print("=== AES_SSC CONSTRUCTOR ===");
-    print("Initialized to: ${toBytes().hex()}");
-    print("Bit size: $bitSize");
-    print("Byte size: ${bitSize / 8}");
-    print("=== AES_SSC CREATED ===");
+    // print("=== AES_SSC CONSTRUCTOR ===");
+    // print("Initialized to: ${toBytes().hex()}");
+    // print("Bit size: $bitSize");
+    // print("Byte size: ${bitSize / 8}");
+    // print("=== AES_SSC CREATED ===");
   }
 }

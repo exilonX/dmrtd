@@ -32,21 +32,21 @@ class MrtdSM extends SecureMessaging {
   SSC get ssc => _ssc;
 
   MrtdSM(SMCipher smCipher, this._ssc) : super(smCipher) {
-    print("=== MrtdSM CONSTRUCTOR ===");
-    print("SMCipher type: ${smCipher.runtimeType}");
-    print("Cipher algorithm: ${smCipher.type}");
-    print("Initial SSC: ${_ssc.toBytes().hex()}");
-    print("SSC bit size: ${_ssc.bitSize}");
-    if (smCipher is AES_SMCipher) {
-      print("AES_SMCipher K_enc: ${smCipher.KSenc.hex()}");
-      print("AES_SMCipher K_mac: ${smCipher.KSmac.hex()}");
-    }
-    print("=== MrtdSM INITIALIZED ===");
+    // print("=== MrtdSM CONSTRUCTOR ===");
+    // print("SMCipher type: ${smCipher.runtimeType}");
+    // print("Cipher algorithm: ${smCipher.type}");
+    // print("Initial SSC: ${_ssc.toBytes().hex()}");
+    // print("SSC bit size: ${_ssc.bitSize}");
+    // if (smCipher is AES_SMCipher) {
+    //   print("AES_SMCipher K_enc: ${smCipher.KSenc.hex()}");
+    //   print("AES_SMCipher K_mac: ${smCipher.KSmac.hex()}");
+    // }
+    // print("=== MrtdSM INITIALIZED ===");
   }
 
   @override
   CommandAPDU protect(final CommandAPDU cmd) {
-    _log.debug("Protecting APDU");
+    // _log.debug("Protecting APDU");
     _ssc.increment();
 
     final pcmd = maskCmd(cmd);
@@ -96,33 +96,33 @@ class MrtdSM extends SecureMessaging {
     ]);
     final macInput = ISO9797.pad(macInputUnpadded, blockLen());
 
-    print("=== SM PROTECT (AES) ===");
-    print("SSC: ${_ssc.toBytes().hex()}");
-    print("Header (raw 4 bytes): ${header.hex()}");
-    print("Header (padded to 16): ${paddedHeader.hex()}");
-    print("DO87 (${dataDO.length} bytes): ${dataDO.hex()}");
-    print("DO97 (${do97ForAes.length} bytes): ${do97ForAes.hex()}");
-    print("MAC input (unpadded, ${macInputUnpadded.length} bytes): ${macInputUnpadded.hex()}");
-    print("MAC input (padded, ${macInput.length} bytes): ${macInput.hex()}");
-    _log.verbose("MAC input=${macInput.hex()}");
+    // print("=== SM PROTECT (AES) ===");
+    // print("SSC: ${_ssc.toBytes().hex()}");
+    // print("Header (raw 4 bytes): ${header.hex()}");
+    // print("Header (padded to 16): ${paddedHeader.hex()}");
+    // print("DO87 (${dataDO.length} bytes): ${dataDO.hex()}");
+    // print("DO97 (${do97ForAes.length} bytes): ${do97ForAes.hex()}");
+    // print(
+    //     "MAC input (unpadded, ${macInputUnpadded.length} bytes): ${macInputUnpadded.hex()}");
+    // print("MAC input (padded, ${macInput.length} bytes): ${macInput.hex()}");
+    // _log.verbose("MAC input=${macInput.hex()}");
 
     fullCC = cipher.mac(macInput);
 
-    _log.verbose("Full CMAC=${fullCC.hex()}");
     final cc8 = fullCC.sublist(0, 8);
-    _log.verbose("Truncated CC=${cc8.hex()}");
 
-    print("Full CMAC (16 bytes): ${fullCC.hex()}");
-    print("Truncated CC (8 bytes): ${cc8.hex()}");
+    // print("Full CMAC (16 bytes): ${fullCC.hex()}");
+    // print("Truncated CC (8 bytes): ${cc8.hex()}");
 
     final do8E = SecureMessaging.do8E(cc8);
     pcmd.data = Uint8List.fromList([...dataDO, ...do97ForAes, ...do8E]);
     pcmd.ne = 256;
 
-    print("DO8E: ${do8E.hex()}");
-    print("Final protected APDU data: ${pcmd.data?.hex()}");
-    print("Final protected APDU: CLA=${pcmd.cla.toRadixString(16)} INS=${pcmd.ins.toRadixString(16)} P1=${pcmd.p1.toRadixString(16)} P2=${pcmd.p2.toRadixString(16)}");
-    print("=== SM PROTECT END ===");
+    // print("DO8E: ${do8E.hex()}");
+    // print("Final protected APDU data: ${pcmd.data?.hex()}");
+    // print(
+    //     "Final protected APDU: CLA=${pcmd.cla.toRadixString(16)} INS=${pcmd.ins.toRadixString(16)} P1=${pcmd.p1.toRadixString(16)} P2=${pcmd.p2.toRadixString(16)}");
+    // print("=== SM PROTECT END ===");
 
     return pcmd;
   }
