@@ -87,7 +87,7 @@ class MrtdSMBAC extends SecureMessaging {
     // Increment SSC should be made before decrypting data
     _ssc.increment();
 
-    _log.debug("Unprotecting RAPDU: $rapdu");
+    // _log.debug("Unprotecting RAPDU: $rapdu");
     final tvDataDO = parseDataDOFromRAPDU(rapdu);
     final do99 = parseDO99FromRAPDU(rapdu, (tvDataDO?.encodedLen ?? 0));
     final do8EStart = (tvDataDO?.encodedLen ?? 0) + do99.encodedLen;
@@ -122,7 +122,7 @@ class MrtdSMBAC extends SecureMessaging {
 
   @visibleForTesting
   Uint8List? decryptDataDO(final DecodedTV? dtv) {
-    _log.verbose("Decrypting data=${dtv?.value.hex()}");
+    // _log.verbose("Decrypting data=${dtv?.value.hex()}");
     if (dtv == null || dtv.value.isEmpty) {
       return null;
     }

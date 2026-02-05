@@ -56,10 +56,10 @@ class AESCipher {
       Uint8List? iv,
       BLOCK_CIPHER_MODE mode = BLOCK_CIPHER_MODE.CBC,
       bool padding = false}) {
-    _log.finest(
-        "AESCipher.encrypt; data size: ${data.length}, data: ${data.hex()}");
-    _log.sdVerbose(
-        "AESCipher.encrypt; data:${data.hex()}, key size: ${key.length}, key: ${key.hex()}");
+    // _log.finest(
+    //     "AESCipher.encrypt; data size: ${data.length}, data: ${data.hex()}");
+    // _log.sdVerbose(
+    //     "AESCipher.encrypt; data:${data.hex()}, key size: ${key.length}, key: ${key.hex()}");
 
     if (key.length != size) {
       _log.error(
@@ -69,19 +69,19 @@ class AESCipher {
     }
 
     if (iv != null) {
-      _log.sdVerbose(
-          "AESCipher.encrypt; iv size: ${iv.length}, iv: ${iv.hex()}");
+      // _log.sdVerbose(
+      //     "AESCipher.encrypt; iv size: ${iv.length}, iv: ${iv.hex()}");
       if (iv.length != AES_BLOCK_SIZE) {
         _log.error("AESCipher.encrypt; iv length is not 128 bits.");
         throw AESCipherError("AESCipher.encrypt; iv length is not 128 bits.");
       }
     } else if (mode == BLOCK_CIPHER_MODE.CBC) {
       iv = Uint8List(AES_BLOCK_SIZE);
-      _log.sdVerbose("AESCipher.encrypt; iv is null");
+      // _log.sdVerbose("AESCipher.encrypt; iv is null");
     }
     final paddedData;
     if (padding) {
-      _log.finest("Padding data with zeros to block size: $AES_BLOCK_SIZE");
+      // _log.finest("Padding data with zeros to block size: $AES_BLOCK_SIZE");
       paddedData =
           pad(data: data, blockSize: AES_BLOCK_SIZE); //AES has no padding
     } else {
@@ -105,10 +105,10 @@ class AESCipher {
       required Uint8List key,
       Uint8List? iv,
       BLOCK_CIPHER_MODE mode = BLOCK_CIPHER_MODE.CBC}) {
-    _log.finest(
-        "AESCipher.decrypt; data size: ${data.length}, data: ${data.hex()}");
-    _log.sdVerbose(
-        "AESCipher.decrypt; data: ${data.hex()}, key size: ${key.length}, key: ${key.hex()}");
+    // _log.finest(
+    //     "AESCipher.decrypt; data size: ${data.length}, data: ${data.hex()}");
+    // _log.sdVerbose(
+    //     "AESCipher.decrypt; data: ${data.hex()}, key size: ${key.length}, key: ${key.hex()}");
 
     if (key.length != size) {
       _log.error(
@@ -118,8 +118,8 @@ class AESCipher {
     }
 
     if (iv != null) {
-      _log.sdVerbose(
-          "AESCipher.decrypt; iv size: ${iv.length}, iv: ${iv.hex()}");
+      // _log.sdVerbose(
+      //     "AESCipher.decrypt; iv size: ${iv.length}, iv: ${iv.hex()}");
       if (iv.length != AES_BLOCK_SIZE) {
         _log.error("AESCipher.encrypt; iv length is not 128 bits.");
         throw AESCipherError("AESCipher.encrypt; iv length is not 128 bits.");
@@ -141,21 +141,21 @@ class AESCipher {
 
   Uint8List _processBlocks(
       {required BlockCipher cipher, required Uint8List data}) {
-    _log.finest("AESCipher._processBlocks; data size: ${data.length}");
-    _log.sdVerbose("AESCipher._processBlocks; data: ${data.hex()}");
+    // _log.finest("AESCipher._processBlocks; data size: ${data.length}");
+    // _log.sdVerbose("AESCipher._processBlocks; data: ${data.hex()}");
     final output = Uint8List(data.length);
 
     for (int i = 0; i < data.length; i += cipher.blockSize) {
       cipher.processBlock(data, i, output, i);
     }
-    _log.sdVerbose("AESCipher._processBlocks; output data: ${output.hex()}");
+    // _log.sdVerbose("AESCipher._processBlocks; output data: ${output.hex()}");
 
     return output;
   }
 
   Uint8List pad({required Uint8List data, int blockSize = AES_BLOCK_SIZE}) {
-    _log.finest("Padding data with zeros to block size: $blockSize");
-    _log.sdVerbose("Data to pad: ${data.hex()} ");
+    // _log.finest("Padding data with zeros to block size: $blockSize");
+    // _log.sdVerbose("Data to pad: ${data.hex()} ");
     final padLength = blockSize - (data.length % blockSize);
     List<int> list = data.toList()..addAll(List.filled(padLength, 0));
     return Uint8List.fromList(list);
@@ -167,10 +167,10 @@ class AESCipher {
   }) {
     // ← use your FixedCMac (which always uses a block-sized zero IV)
     final cmac = FixedCMac.fromCipher(BlockCipher('AES'));
-    _log.finest(
-        "AESCipher.calculateCMAC; data size: ${data.length}, data: ${data.hex()}");
-    _log.sdVerbose(
-        "AESCipher.calculateCMAC; data: ${data.hex()}, key size: ${key.length}, key: ${key.hex()}");
+    // _log.finest(
+    //     "AESCipher.calculateCMAC; data size: ${data.length}, data: ${data.hex()}");
+    // _log.sdVerbose(
+    //     "AESCipher.calculateCMAC; data: ${data.hex()}, key size: ${key.length}, key: ${key.hex()}");
 
     // print("=== AESCipher.calculateCMAC ENTRY ===");
     // print("Input data length: ${data.length}");
@@ -190,10 +190,10 @@ class AESCipher {
     // print("Allocated output buffer size: ${out.length}");
 
     final bytesWritten = cmac.doFinal(out, 0);
-    print("Bytes written by doFinal: $bytesWritten");
-    print("Output MAC length: ${out.length}");
-    print("Output MAC: ${out.hex()}");
-    print("=== AESCipher.calculateCMAC EXIT ===");
+    // print("Bytes written by doFinal: $bytesWritten");
+    // print("Output MAC length: ${out.length}");
+    // print("Output MAC: ${out.hex()}");
+    // print("=== AESCipher.calculateCMAC EXIT ===");
 
     return out;
   }

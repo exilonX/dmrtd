@@ -139,7 +139,7 @@ class MrtdSM extends SecureMessaging {
     // Increment SSC should be made before decrypting data
     _ssc.increment();
 
-    _log.debug("Unprotecting RAPDU: $rapdu");
+    // _log.debug("Unprotecting RAPDU: $rapdu");
     final tvDataDO = parseDataDOFromRAPDU(rapdu);
     final do99 = parseDO99FromRAPDU(rapdu, (tvDataDO?.encodedLen ?? 0));
     final do8EStart = (tvDataDO?.encodedLen ?? 0) + do99.encodedLen;
@@ -151,11 +151,11 @@ class MrtdSM extends SecureMessaging {
     // Truncate CMAC to 8 bytes for comparison (same as protect())
     final CC = fullCC.sublist(0, 8);
 
-    _log.verbose("Generated K=${K.hex()}");
-    _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
-    _log.verbose("APDU CC=${do8E.value.hex()}");
-    _log.verbose("Calculated full CC=${fullCC.hex()}");
-    _log.verbose("Calculated truncated CC=${CC.hex()}");
+    // _log.verbose("Generated K=${K.hex()}");
+    // _log.verbose("  used SSC=${_ssc.toBytes().hex()}");
+    // _log.verbose("APDU CC=${do8E.value.hex()}");
+    // _log.verbose("Calculated full CC=${fullCC.hex()}");
+    // _log.verbose("Calculated truncated CC=${CC.hex()}");
     if (!_eq(CC, do8E.value)) {
       throw SMError("Invalid MAC of response APDU");
     }
@@ -165,7 +165,7 @@ class MrtdSM extends SecureMessaging {
 
   @visibleForTesting
   Uint8List? decryptDataDO(final DecodedTV? dtv) {
-    _log.verbose("Decrypting data=${dtv?.value.hex()}");
+    // _log.verbose("Decrypting data=${dtv?.value.hex()}");
     if (dtv == null || dtv.value.isEmpty) {
       return null;
     }
@@ -181,11 +181,11 @@ class MrtdSM extends SecureMessaging {
         !isDO87 || dtv.value[0] == 0x01; // Defined in ISO/IEC 7816-4 part 5
     var data = cipher.decrypt(dtv.value.sublist(isDO87 ? 1 : 0),
         ssc: _ssc); // SSC is used only in AES
-    _log.sdVerbose("Decrypted data=${data.hex()}");
-    _log.sdVerbose("Decrypted data is padded: $padded");
+    // _log.sdVerbose("Decrypted data=${data.hex()}");
+    // _log.sdVerbose("Decrypted data is padded: $padded");
     if (padded) {
       data = ISO9797.unpad(data);
-      _log.sdVerbose("Unpadded data=${data.hex()}");
+      // _log.sdVerbose("Unpadded data=${data.hex()}");
     }
     return data;
   }
