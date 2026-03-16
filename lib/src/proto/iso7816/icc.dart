@@ -67,7 +67,15 @@ class ICC {
         p2: 0x00,
         data: data,
         ne: ne));
+    // Some cards (e.g. Romanian CEI) return non-standard SW with valid
+    // BAC data due to NFC response corruption. If we got data of the
+    // expected length, let the BAC MAC verification handle the real check.
     if (rapdu.status != StatusWord.success) {
+      if (rapdu.data != null && rapdu.data!.length == ne) {
+        _log.warning("EXTERNAL AUTHENTICATE returned non-standard SW "
+            "${rapdu.status} but got $ne bytes of data — proceeding");
+        return rapdu.data!;
+      }
       throw ICCError("External authenticate failed", rapdu.status, rapdu.data);
     }
     return rapdu.data!;
