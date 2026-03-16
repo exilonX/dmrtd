@@ -73,6 +73,14 @@ List<Map<String, Object>> customOIDS = [
     'readableName': 'id-PACE-DH-IM-AES-CBC-CMAC-256',
     'identifier': [0, 4, 0, 127, 0, 7, 2, 2, 4, 3, 4]
   },
+  // Non-standard OID found on some Romanian eID cards (CEI).
+  // Third OID component is 3 instead of 0, cipher suffix missing.
+  // Card manufacturing defect — map to ECDH-GM-AES-CBC-CMAC-128.
+  {
+    'identifierString': '0.4.3.0.127.0.7.2.2.4.2',
+    'readableName': 'id-PACE-ECDH-GM-AES-CBC-CMAC-128',
+    'identifier': [0, 4, 3, 0, 127, 0, 7, 2, 2, 4, 2]
+  },
   {
     'identifierString': '0.4.0.127.0.7.2.2.4.2.1',
     'readableName': 'id-PACE-ECDH-GM-3DES-CBC-CBC',
