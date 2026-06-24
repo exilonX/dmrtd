@@ -43,8 +43,17 @@ class MrtdApi {
   static const _defaultSelectP2 =
       ISO97816_SelectFileP2.returnFCP | ISO97816_SelectFileP2.returnFMD;
   final _log = Logger("mrtd.api");
-  static const int _defaultReadLength =
-      112; // 256 = expect maximum number of bytes. TODO: in production set it to 224 - JMRTD
+  // Extended-length APDU read. Modern eMRTD chips (incl. Romanian eID
+  // with AES-256 SM) negotiate extended length; this lets a single
+  // READ BINARY return up to ~4 KB instead of ~112 B. For a 12 KB DG2
+  // photo on iOS that's ~4 APDUs (~300 ms) instead of ~110 APDUs
+  // (~9 s) — the dominant cost in NFC enrollment.
+  //
+  // If the chip rejects extended length (StatusWord.wrongLength or
+  // sw1WrongLengthWithExactLength), `_reduceMaxRead` cascades down to
+  // 224 → 160 → 128 → ... automatically, so this is safe to start
+  // aggressive. Worst case: one wasted APDU on first attempt.
+  static const int _defaultReadLength = 4096;
   int _maxRead = _defaultReadLength;
   static const int _readAheadLength =
       8; // Number of bytes to read at the start of file to determine file length.
